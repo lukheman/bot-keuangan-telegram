@@ -3,7 +3,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import AsyncSessionLocal
-from app.models import User, Category, Transaction, TransactionType
+from app.models import User, Category, Transaction, TransactionType, Wallet
 import logging
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,25 @@ async def get_or_create_category(session: AsyncSession, user_id, type_: Transact
         await session.flush()
     return category
 
-async def record_transaction(telegram_user, amount: decimal.Decimal, description: str, tx_type: TransactionType, category_name: str = None) -> Transaction:
+async def get_or_create_wallet(session: AsyncSession, user_id, wallet_name: str = None) -> Wallet:
+    name = wallet_name or "Utama"
+    stmt = select(Wallet).where(
+        Wallet.user_id == user_id,
+        Wallet.name == name
+    )
+    wallet = (await session.execute(stmt)).scalar_one_or_none()
+    
+    if not wallet:
+        wallet = Wallet(
+            user_id=user_id,
+            name=name,
+            balance=decimal.Decimal(0.0)
+        )
+        session.add(wallet)
+        await session.flush()
+    return wallet
+
+async def record_transaction(telegram_user, amount: decimal.Decimal, description: str, tx_type: TransactionType, category_name: str = None, wallet_name: str = None) -> Transaction:
     async with AsyncSessionLocal() as session:
         user = await get_or_create_user(
             session, 
@@ -51,10 +69,18 @@ async def record_transaction(telegram_user, amount: decimal.Decimal, description
             telegram_user.full_name
         )
         category = await get_or_create_category(session, user.id, tx_type, category_name)
+        wallet = await get_or_create_wallet(session, user.id, wallet_name)
         
+        # Update balance dompet
+        if tx_type == TransactionType.INCOME:
+            wallet.balance += amount
+        else:
+            wallet.balance -= amount
+
         new_tx = Transaction(
             user_id=user.id,
             category_id=category.id,
+            wallet_id=wallet.id,
             amount=amount,
             type=tx_type,
             description=description,
@@ -64,5 +90,6 @@ async def record_transaction(telegram_user, amount: decimal.Decimal, description
         await session.commit()
         await session.refresh(new_tx)
         new_tx.category_name = category.name
-        logger.debug(f"Transaksi tersimpan di database: id={new_tx.id}")
+        new_tx.wallet_name = wallet.name
+        logger.debug(f"Transaksi tersimpan di database: id={new_tx.id}, wallet={wallet.name}")
         return new_tx

@@ -4,6 +4,7 @@ from app.models.category import Category, TransactionType
 from app.models.transaction import Transaction
 from app.models.budget import Budget, Period
 from app.models.recurring import RecurringTransaction
+from app.models.wallet import Wallet
 
 __all__ = [
     "Base",
@@ -14,5 +15,6 @@ __all__ = [
     "Transaction",
     "Budget",
     "Period",
-    "RecurringTransaction"
+    "RecurringTransaction",
+    "Wallet"
 ]
