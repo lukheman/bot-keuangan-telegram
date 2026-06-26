@@ -27,9 +27,9 @@ def _append_to_sheet_sync(tx: Transaction):
         try:
             first_row = worksheet.row_values(1)
             if not first_row:
-                worksheet.append_row(["ID", "Tanggal", "Tipe", "Nominal", "Kategori", "Deskripsi"])
+                worksheet.append_row(["ID", "Tanggal", "Tipe", "Nominal", "Kategori", "Deskripsi", "Dompet"])
         except Exception:
-            worksheet.append_row(["ID", "Tanggal", "Tipe", "Nominal", "Kategori", "Deskripsi"])
+            worksheet.append_row(["ID", "Tanggal", "Tipe", "Nominal", "Kategori", "Deskripsi", "Dompet"])
             
         tipe_str = "Pemasukan" if tx.type == TransactionType.INCOME else "Pengeluaran"
         row = [
@@ -38,7 +38,8 @@ def _append_to_sheet_sync(tx: Transaction):
             tipe_str,
             float(tx.amount),
             getattr(tx, "category_name", "Lainnya"),
-            tx.description
+            tx.description,
+            getattr(tx, "wallet_name", "Utama")
         ]
         
         worksheet.append_row(row)
