@@ -65,7 +65,7 @@ def main():
     app.add_handler(MessageHandler(filters.PHOTO, proses_gambar))
 
     # Handler untuk tombol konfirmasi
-    app.add_handler(CallbackQueryHandler(konfirmasi_transaksi, pattern="^(simpan|batal)_"))
+    app.add_handler(CallbackQueryHandler(konfirmasi_transaksi, pattern="^(simpan|batal|ubah)_"))
 
     logger.info("✅ Bot berjalan...")
     app.run_polling()

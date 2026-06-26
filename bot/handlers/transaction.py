@@ -7,6 +7,7 @@ from datetime import date
 from app.services.ocr_service import extract_text_from_image
 from app.services.groq_service import analyze_transaction
 from app.services.transaction_service import record_transaction
+from app.services.sheets_service import append_to_sheet
 from app.models import TransactionType
 import logging
 
@@ -40,14 +41,17 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "category": result.category
         }
 
+        jenis = "Pemasukan" if result.type == "INCOME" else "Pengeluaran"
+        lawan_jenis = "Pengeluaran" if result.type == "INCOME" else "Pemasukan"
+        icon = "📈" if result.type == "INCOME" else "📉"
+
         keyboard = [
             [InlineKeyboardButton("✅ Simpan", callback_data=f"simpan_{tx_id}")],
+            [InlineKeyboardButton(f"🔄 Ubah ke {lawan_jenis}", callback_data=f"ubah_{tx_id}")],
             [InlineKeyboardButton("❌ Batal", callback_data=f"batal_{tx_id}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        jenis = "Pemasukan" if result.type == "INCOME" else "Pengeluaran"
-        icon = "📈" if result.type == "INCOME" else "📉"
         msg = (
             f"🤖 *Hasil Analisis Otomatis*\n\n"
             f"{icon} *Jenis:* {jenis}\n"
@@ -80,6 +84,37 @@ async def konfirmasi_transaksi(update: Update, context: ContextTypes.DEFAULT_TYP
             del context.user_data[tx_id]
         return
 
+    if action == "ubah":
+        tx_data = context.user_data.get(tx_id)
+        if not tx_data:
+            await query.edit_message_text("⚠️ Sesi kedaluwarsa atau data tidak ditemukan.")
+            return
+            
+        # Balik tipe
+        tx_data["type"] = "EXPENSE" if tx_data["type"] == "INCOME" else "INCOME"
+        
+        # Buat keyboard baru
+        lawan_jenis = "Pengeluaran" if tx_data["type"] == "INCOME" else "Pemasukan"
+        keyboard = [
+            [InlineKeyboardButton("✅ Simpan", callback_data=f"simpan_{tx_id}")],
+            [InlineKeyboardButton(f"🔄 Ubah ke {lawan_jenis}", callback_data=f"ubah_{tx_id}")],
+            [InlineKeyboardButton("❌ Batal", callback_data=f"batal_{tx_id}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        jenis = "Pemasukan" if tx_data["type"] == "INCOME" else "Pengeluaran"
+        icon = "📈" if tx_data["type"] == "INCOME" else "📉"
+        msg = (
+            f"🤖 *Hasil Analisis Otomatis (Diedit)*\n\n"
+            f"{icon} *Jenis:* {jenis}\n"
+            f"💵 *Jumlah:* Rp{tx_data['amount']:,.0f}\n"
+            f"📝 *Deskripsi:* {tx_data['description']}\n"
+            f"🏷️ *Kategori:* {tx_data['category']}\n\n"
+            f"Apakah data ini sudah benar?"
+        )
+        await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
+        return
+
     if action == "simpan":
         tx_data = context.user_data.get(tx_id)
         if not tx_data:
@@ -93,7 +128,10 @@ async def konfirmasi_transaksi(update: Update, context: ContextTypes.DEFAULT_TYP
 
         try:
             logger.info(f"User {update.effective_user.id} mengkonfirmasi transaksi {tx_id} ({tx_type.value} {amount})")
-            await record_transaction(update.effective_user, decimal.Decimal(amount), description, tx_type, category_name=category)
+            tx = await record_transaction(update.effective_user, decimal.Decimal(amount), description, tx_type, category_name=category)
+            
+            # Catat ke Google Sheets
+            await append_to_sheet(tx)
             
             jenis = "Pemasukan" if tx_data["type"] == "INCOME" else "Pengeluaran"
             icon = "📈" if tx_data["type"] == "INCOME" else "📉"
@@ -129,7 +167,10 @@ async def _catat_transaksi(update: Update, context: ContextTypes.DEFAULT_TYPE, t
 
     try:
         logger.info(f"Mencatat manual ({command_name}): User {update.effective_user.id}, Rp{amount}, {description}")
-        await record_transaction(update.effective_user, amount, description, tx_type)
+        tx = await record_transaction(update.effective_user, amount, description, tx_type)
+        
+        # Catat ke Google Sheets
+        await append_to_sheet(tx)
         
         jenis = "Pemasukan" if tx_type == TransactionType.INCOME else "Pengeluaran"
         await update.message.reply_text(

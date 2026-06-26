@@ -63,5 +63,6 @@ async def record_transaction(telegram_user, amount: decimal.Decimal, description
         session.add(new_tx)
         await session.commit()
         await session.refresh(new_tx)
+        new_tx.category_name = category.name
         logger.debug(f"Transaksi tersimpan di database: id={new_tx.id}")
         return new_tx
