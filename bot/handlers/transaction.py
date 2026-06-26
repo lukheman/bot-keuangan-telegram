@@ -1,0 +1,150 @@
+import os
+import decimal
+import uuid
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ContextTypes
+from datetime import date
+from app.services.ocr_service import extract_text_from_image
+from app.services.groq_service import analyze_transaction
+from app.services.transaction_service import record_transaction
+from app.models import TransactionType
+import logging
+
+logger = logging.getLogger(__name__)
+
+async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("⏳ Sedang memproses gambar...")
+
+    try:
+        photo = update.message.photo[-1]
+        file = await context.bot.get_file(photo.file_id)
+        file_path = f"temp_{update.effective_user.id}.jpg"
+        
+        logger.info(f"User {update.effective_user.id} mengirim gambar untuk diproses AI Vision. Menyimpan di {file_path}")
+        await file.download_to_drive(file_path)
+
+        # Proses gambar secara langsung ke AI Vision (Tanpa Tesseract OCR)
+        result = await analyze_transaction(file_path)
+        os.remove(file_path)
+
+        if not result.is_valid:
+            await update.message.reply_text(f"❌ Gagal menganalisis gambar: {result.reason}")
+            return
+
+        # Simpan ke user_data
+        tx_id = str(uuid.uuid4())
+        context.user_data[tx_id] = {
+            "type": result.type,
+            "amount": result.amount,
+            "description": result.description,
+            "category": result.category
+        }
+
+        keyboard = [
+            [InlineKeyboardButton("✅ Simpan", callback_data=f"simpan_{tx_id}")],
+            [InlineKeyboardButton("❌ Batal", callback_data=f"batal_{tx_id}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        jenis = "Pemasukan" if result.type == "INCOME" else "Pengeluaran"
+        icon = "📈" if result.type == "INCOME" else "📉"
+        msg = (
+            f"🤖 *Hasil Analisis Otomatis*\n\n"
+            f"{icon} *Jenis:* {jenis}\n"
+            f"💵 *Jumlah:* Rp{result.amount:,.0f}\n"
+            f"📝 *Deskripsi:* {result.description}\n"
+            f"🏷️ *Kategori:* {result.category}\n"
+            f"🎯 *Keyakinan:* {result.confidence * 100:.0f}%\n\n"
+            f"Apakah data ini sudah benar?"
+        )
+
+        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"Error saat memproses gambar dari user {update.effective_user.id}: {str(e)}", exc_info=True)
+        await update.message.reply_text(f"⚠️ Terjadi error: {str(e)}")
+        if 'file_path' in locals() and os.path.exists(file_path):
+            os.remove(file_path)
+
+async def konfirmasi_transaksi(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data
+    action, tx_id = data.split("_", 1)
+
+    if action == "batal":
+        logger.info(f"User {update.effective_user.id} membatalkan transaksi {tx_id}")
+        await query.edit_message_text("❌ Pencatatan dibatalkan.")
+        if tx_id in context.user_data:
+            del context.user_data[tx_id]
+        return
+
+    if action == "simpan":
+        tx_data = context.user_data.get(tx_id)
+        if not tx_data:
+            await query.edit_message_text("⚠️ Sesi kedaluwarsa atau data tidak ditemukan.")
+            return
+
+        tx_type = TransactionType.INCOME if tx_data["type"] == "INCOME" else TransactionType.EXPENSE
+        amount = tx_data["amount"]
+        description = tx_data["description"]
+        category = tx_data["category"]
+
+        try:
+            logger.info(f"User {update.effective_user.id} mengkonfirmasi transaksi {tx_id} ({tx_type.value} {amount})")
+            await record_transaction(update.effective_user, decimal.Decimal(amount), description, tx_type, category_name=category)
+            
+            jenis = "Pemasukan" if tx_data["type"] == "INCOME" else "Pengeluaran"
+            icon = "📈" if tx_data["type"] == "INCOME" else "📉"
+            await query.edit_message_text(
+                f"{icon} *{jenis} Berhasil Dicatat!*\n\n"
+                f"💵 *Jumlah:* Rp{amount:,.0f}\n"
+                f"📝 *Deskripsi:* {description}\n"
+                f"🏷️ *Kategori:* {category}",
+                parse_mode="Markdown"
+            )
+            del context.user_data[tx_id]
+        except Exception as e:
+            logger.error(f"Gagal mencatat transaksi dari konfirmasi: {str(e)}", exc_info=True)
+            await query.edit_message_text(f"⚠️ Terjadi error saat menyimpan: {str(e)}")
+
+async def _catat_transaksi(update: Update, context: ContextTypes.DEFAULT_TYPE, tx_type: TransactionType, command_name: str, verb: str, icon: str):
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text(
+            f"⚠️ *Format salah!*\n\n"
+            f"Gunakan: `/{command_name} [jumlah] [deskripsi]`\n"
+            f"Contoh: `/{command_name} 50000 {verb}`",
+            parse_mode="Markdown"
+        )
+        return
+
+    try:
+        amount_str = context.args[0].replace(".", "").replace(",", "")
+        amount = decimal.Decimal(amount_str)
+        description = " ".join(context.args[1:])
+    except decimal.InvalidOperation:
+        await update.message.reply_text("⚠️ Jumlah transaksi harus berupa angka yang valid.")
+        return
+
+    try:
+        logger.info(f"Mencatat manual ({command_name}): User {update.effective_user.id}, Rp{amount}, {description}")
+        await record_transaction(update.effective_user, amount, description, tx_type)
+        
+        jenis = "Pemasukan" if tx_type == TransactionType.INCOME else "Pengeluaran"
+        await update.message.reply_text(
+            f"{icon} *{jenis} Berhasil Dicatat!*\n\n"
+            f"💵 *Jumlah:* Rp{amount:,.0f}\n"
+            f"📝 *Deskripsi:* {description}\n"
+            f"📅 *Tanggal:* {date.today().strftime('%d %b %Y')}",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logger.error(f"Gagal mencatat transaksi manual: {str(e)}", exc_info=True)
+        await update.message.reply_text(f"⚠️ Terjadi error saat menyimpan ke database: {str(e)}")
+
+async def catat_pemasukan(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await _catat_transaksi(update, context, TransactionType.INCOME, "masuk", "gaji bulan ini", "📈")
+
+async def catat_pengeluaran(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await _catat_transaksi(update, context, TransactionType.EXPENSE, "keluar", "makan siang", "📉")
