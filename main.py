@@ -85,8 +85,18 @@ def main():
     # Handler untuk menu interaktif
     app.add_handler(CallbackQueryHandler(menu_callback, pattern="^menu_"))
 
-    logger.info("✅ Bot berjalan...")
-    app.run_polling()
+    logger.info("✅ Menyiapkan Bot...")
+    if settings.WEBHOOK_URL:
+        logger.info(f"🌐 Menggunakan metode WEBHOOK pada port {settings.PORT}")
+        logger.info(f"🔗 Webhook URL: {settings.WEBHOOK_URL}")
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=settings.PORT,
+            webhook_url=settings.WEBHOOK_URL
+        )
+    else:
+        logger.info("🔄 Menggunakan metode LONG POLLING")
+        app.run_polling()
 
 
 if __name__ == "__main__":
