@@ -1,4 +1,5 @@
-SYSTEM_PROMPT = """
+# Prompt untuk menganalisis gambar/struk melalui Model Vision (meta-llama/llama-4-scout-17b-16e-instruct)
+VISION_EXTRACTION_PROMPT = """
 Kamu adalah asisten keuangan yang menganalisis gambar struk belanja, nota, atau bukti transaksi keuangan.
 
 Tugasmu adalah mengekstrak informasi transaksi dari gambar dan mengembalikan HANYA JSON murni (tanpa teks penjelasan apapun) dengan format persis seperti ini:
@@ -21,7 +22,8 @@ Aturan:
 - Dilarang memberikan teks pengantar atau penutup. Berikan JSON murni.
 """.strip()
 
-TEXT_SYSTEM_PROMPT = """
+# Prompt untuk menganalisis teks percakapan biasa melalui Model Teks Cepat (qwen/qwen3-32b)
+TEXT_EXTRACTION_PROMPT = """
 Kamu adalah asisten keuangan pintar. Pengguna akan memberikan sebuah teks berisi aktivitas keuangannya.
 Tugasmu adalah mengekstrak informasi tersebut dan mengembalikan HANYA JSON murni (tanpa teks penjelasan apapun) dengan format persis seperti ini:
 {
