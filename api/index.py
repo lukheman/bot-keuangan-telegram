@@ -46,6 +46,9 @@ async def telegram_webhook(request: Request):
         
         return Response(status_code=200, content="ok")
     except Exception as e:
+        logger.error(f"Error handling webhook: {e}")
+        return Response(status_code=500, content="Internal Server Error")
+
 @app.get("/")
 @app.get("/api/webhook")
 async def bot_info():
