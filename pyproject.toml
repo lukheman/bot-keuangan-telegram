@@ -13,7 +13,7 @@ dependencies = [
     "pydantic-settings>=2.14.2",
     "pytesseract>=0.3.13",
     "python-dotenv>=1.2.2",
-    "python-telegram-bot>=22.8",
+    "python-telegram-bot[webhooks]>=22.8",
     "sqlalchemy>=2.0.51",
 ]
 
