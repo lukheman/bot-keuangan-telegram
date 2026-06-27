@@ -110,8 +110,17 @@ async def telegram_auth(request: Request):
 import jwt
 from app.core.config import settings
 
-@app.get("/api/auth/token", response_class=HTMLResponse)
-async def token_auth(request: Request):
+from fastapi.responses import RedirectResponse
+from fastapi.templating import Jinja2Templates
+from app.core.database import AsyncSessionLocal
+from app.models import User, Transaction, TransactionType
+from sqlalchemy import select, desc
+import datetime
+
+templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), '..', 'app', 'templates'))
+
+@app.get("/api/auth/token")
+async def token_auth(request: Request, response: Response):
     token = request.query_params.get("token")
     if not token:
         return HTMLResponse("<h1>Error: Token tidak ditemukan</h1>", status_code=400)
@@ -120,32 +129,66 @@ async def token_auth(request: Request):
         # Decode and verify the JWT
         payload = jwt.decode(token, settings.TELEGRAM_TOKEN, algorithms=["HS256"])
         
-        name = payload.get("name", "Pengguna")
-        telegram_id = payload.get("telegram_id")
-        
-        html_success = f"""
-        <!DOCTYPE html>
-        <html lang="id">
-        <head>
-            <meta charset="UTF-8">
-            <title>Login Berhasil</title>
-            <style>
-                body {{ font-family: 'Inter', sans-serif; background: #0f172a; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
-                .card {{ background: rgba(30,41,59,0.7); padding: 40px; border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }}
-                h1 {{ color: #10b981; }}
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <h1>✅ Autentikasi Web Berhasil!</h1>
-                <p>Selamat datang, <b>{name}</b>!</p>
-                <p>Sistem telah mengenali Anda dari tautan Token Bot (Telegram ID: {telegram_id}).</p>
-            </div>
-        </body>
-        </html>
-        """
-        return HTMLResponse(content=html_success, status_code=200)
+        # Redirect ke dashboard dan set cookie
+        redirect = RedirectResponse(url="/dashboard", status_code=302)
+        redirect.set_cookie(key="auth_token", value=token, httponly=True, max_age=3600*24)
+        return redirect
     except jwt.ExpiredSignatureError:
         return HTMLResponse("<h1>Error: Token sudah kedaluwarsa</h1><p>Silakan minta token baru di bot Telegram Anda.</p>", status_code=400)
     except jwt.InvalidTokenError:
         return HTMLResponse("<h1>Error: Token tidak valid</h1>", status_code=400)
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    token = request.cookies.get("auth_token")
+    if not token:
+        return RedirectResponse(url="/login")
+        
+    try:
+        payload = jwt.decode(token, settings.TELEGRAM_TOKEN, algorithms=["HS256"])
+        telegram_id = payload.get("telegram_id")
+        
+        async with AsyncSessionLocal() as session:
+            stmt = select(User).where(User.telegram_id == telegram_id)
+            user = (await session.execute(stmt)).scalar_one_or_none()
+            
+            if not user:
+                return RedirectResponse(url="/login")
+                
+            from sqlalchemy.orm import joinedload
+            # Ambil transaksi terbaru (limit 10)
+            tx_stmt = select(Transaction).options(joinedload(Transaction.category)).where(Transaction.user_id == user.id).order_by(desc(Transaction.date), desc(Transaction.id)).limit(10)
+            transactions = (await session.execute(tx_stmt)).scalars().all()
+            
+            # Hitung statistik bulan ini
+            current_month = datetime.date.today().replace(day=1)
+            stat_stmt = select(Transaction).where(Transaction.user_id == user.id, Transaction.date >= current_month)
+            month_tx = (await session.execute(stat_stmt)).scalars().all()
+            
+            total_income = sum(tx.amount for tx in month_tx if tx.type == TransactionType.INCOME)
+            total_expense = sum(tx.amount for tx in month_tx if tx.type == TransactionType.EXPENSE)
+            
+            # Total Saldo (dari tabel wallets bisa juga, tapi untuk simple kita ambil dari user.wallets)
+            # Karena eager loading belum disetup, kita ambil manual
+            from app.models import Wallet
+            wallet_stmt = select(Wallet).where(Wallet.user_id == user.id)
+            wallets = (await session.execute(wallet_stmt)).scalars().all()
+            total_balance = sum(w.balance for w in wallets)
+            
+            return templates.TemplateResponse("dashboard.html", {
+                "request": request,
+                "user": user,
+                "transactions": transactions,
+                "total_income": float(total_income),
+                "total_expense": float(total_expense),
+                "total_balance": float(total_balance)
+            })
+            
+    except jwt.InvalidTokenError:
+        return RedirectResponse(url="/login")
+
+@app.get("/logout")
+async def logout():
+    response = RedirectResponse(url="/login")
+    response.delete_cookie("auth_token")
+    return response
