@@ -46,9 +46,11 @@ async def telegram_webhook(request: Request):
         
         return Response(status_code=200, content="ok")
     except Exception as e:
-        logger.error(f"Error handling webhook: {e}")
-        return Response(status_code=500, content="Internal Server Error")
-
 @app.get("/")
-def home():
-    return {"message": "Telegram Bot is running on Vercel!"}
+@app.get("/api/webhook")
+async def bot_info():
+    return {
+        "status": "success",
+        "message": "Bot Keuangan berjalan normal di Vercel Serverless.",
+        "telegram_webhook_ready": True
+    }
