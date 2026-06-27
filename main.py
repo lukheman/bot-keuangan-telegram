@@ -56,10 +56,17 @@ async def cek_bahasa(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
+from bot.handlers.account import register_user, account_info, delete_account, login_web
+
 def create_app():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("register", register_user))
+    app.add_handler(CommandHandler("akun", account_info))
+    app.add_handler(CommandHandler("hapus_akun", delete_account))
+    app.add_handler(CommandHandler("login_web", login_web))
+    
     app.add_handler(CommandHandler("bahasa", cek_bahasa))
     app.add_handler(CommandHandler("masuk", catat_pemasukan))
     app.add_handler(CommandHandler("keluar", catat_pengeluaran))
