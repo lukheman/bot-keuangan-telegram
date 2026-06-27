@@ -42,7 +42,6 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "💼 *Menu Dompet*\n\n"
             "Untuk melihat isi dompet, ketik: `/dompet`\n"
             "Untuk menambah dompet: `/tambah_dompet [Nama] [Saldo]`\n"
-            "Untuk mengatur saldo: `/atur_saldo [Nama] [Saldo]`\n"
             "Untuk menghapus: `/hapus_dompet [Nama]`",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="menu_utama")]])

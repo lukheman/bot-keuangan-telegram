@@ -21,7 +21,7 @@ from telegram.ext import (
 from app.core.config import settings
 from bot.handlers.transaction import proses_gambar, proses_teks, catat_pemasukan, catat_pengeluaran, konfirmasi_transaksi
 from bot.handlers.report import ringkasan_hari_ini, ringkasan_minggu, ringkasan_bulan
-from bot.handlers.wallet import list_wallets, tambah_dompet, hapus_dompet, atur_saldo
+from bot.handlers.wallet import list_wallets, tambah_dompet, hapus_dompet
 from bot.handlers.menu import tampilkan_menu, menu_callback
 
 TOKEN = settings.TELEGRAM_TOKEN
@@ -41,7 +41,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/dompet - Cek saldo semua dompet\n"
         "/tambah_dompet [nama] [saldo_awal] - Buat dompet baru\n"
         "/hapus_dompet [nama] - Hapus dompet\n"
-        "/atur_saldo [nama] [saldo] - Koreksi saldo dompet\n"
         "/menu - Tampilkan menu interaktif"
     )
 
@@ -77,7 +76,6 @@ def create_app():
     app.add_handler(CommandHandler("dompet", list_wallets))
     app.add_handler(CommandHandler("tambah_dompet", tambah_dompet))
     app.add_handler(CommandHandler("hapus_dompet", hapus_dompet))
-    app.add_handler(CommandHandler("atur_saldo", atur_saldo))
     app.add_handler(CommandHandler("menu", tampilkan_menu))
 
     # Handler untuk gambar yang dikirim sebagai foto

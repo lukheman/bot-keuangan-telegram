@@ -95,32 +95,4 @@ async def hapus_dompet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await session.commit()
         await update.message.reply_text(f"🗑️ Dompet *{nama}* telah dihapus beserta transaksinya.", parse_mode="Markdown")
 
-async def atur_saldo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args or len(context.args) < 2:
-        await update.message.reply_text("⚠️ Gunakan format: `/atur_saldo [Nama_Dompet] [Saldo_Baru]`\nContoh: `/atur_saldo BCA 1000000`", parse_mode="Markdown")
-        return
 
-    nama = context.args[0]
-    saldo_str = context.args[1].replace(".", "").replace(",", "")
-
-    try:
-        saldo = decimal.Decimal(saldo_str)
-    except Exception:
-        await update.message.reply_text("⚠️ Saldo baru harus berupa angka.")
-        return
-
-    async with AsyncSessionLocal() as session:
-        user_id = await _get_internal_user_id(session, update.effective_user.id)
-        if not user_id:
-            return
-
-        stmt = select(Wallet).where(Wallet.user_id == user_id, Wallet.name == nama)
-        wallet = (await session.execute(stmt)).scalar_one_or_none()
-
-        if not wallet:
-            await update.message.reply_text(f"⚠️ Dompet *{nama}* tidak ditemukan.", parse_mode="Markdown")
-            return
-
-        wallet.balance = saldo
-        await session.commit()
-        await update.message.reply_text(f"🔄 Saldo dompet *{nama}* berhasil disesuaikan menjadi Rp{saldo:,.0f}.", parse_mode="Markdown")
