@@ -56,7 +56,7 @@ async def cek_bahasa(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-def main():
+def create_app():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -85,6 +85,10 @@ def main():
     # Handler untuk menu interaktif
     app.add_handler(CallbackQueryHandler(menu_callback, pattern="^menu_"))
 
+    return app
+
+def main():
+    app = create_app()
     logger.info("✅ Menyiapkan Bot...")
     if settings.WEBHOOK_URL:
         logger.info(f"🌐 Menggunakan metode WEBHOOK pada port {settings.PORT}")
@@ -97,7 +101,6 @@ def main():
     else:
         logger.info("🔄 Menggunakan metode LONG POLLING")
         app.run_polling()
-
 
 if __name__ == "__main__":
     main()

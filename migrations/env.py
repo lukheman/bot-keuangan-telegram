@@ -23,6 +23,10 @@ import os
 import sys
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..')))
 from app.models import Base
+from app.core.config import settings
+
+# Override sqlalchemy.url from config with settings.DATABASE_URL
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata

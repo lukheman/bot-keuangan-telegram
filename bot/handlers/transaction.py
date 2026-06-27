@@ -4,7 +4,6 @@ import uuid
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from datetime import date
-from app.services.ocr_service import extract_text_from_image
 from app.services.groq_service import analyze_transaction
 from app.services.transaction_service import record_transaction
 from app.services.sheets_service import append_to_sheet
@@ -19,7 +18,7 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         photo = update.message.photo[-1]
         file = await context.bot.get_file(photo.file_id)
-        file_path = f"temp_{update.effective_user.id}.jpg"
+        file_path = f"/tmp/temp_{update.effective_user.id}.jpg"
         
         logger.info(f"User {update.effective_user.id} mengirim gambar untuk diproses AI Vision. Menyimpan di {file_path}")
         await file.download_to_drive(file_path)

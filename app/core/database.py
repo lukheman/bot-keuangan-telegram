@@ -1,8 +1,9 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from app.models.base import Base
 
-# Gunakan aiosqlite untuk async SQLite
-DATABASE_URL = "sqlite+aiosqlite:///./finance_bot.db"
+from app.core.config import settings
+
+DATABASE_URL = settings.DATABASE_URL
 
 # Buat async engine
 engine = create_async_engine(

@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     WEBHOOK_URL: str | None = None
     PORT: int = 8443
     GOOGLE_SHEETS_CREDENTIALS_B64: str | None = None
+    DATABASE_URL: str = "sqlite+aiosqlite:///./finance_bot.db"
 
     class Config:
         env_file = ".env"
