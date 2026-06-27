@@ -3,7 +3,8 @@ import os
 import sys
 
 # Ensure the root directory is in the python path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Now located at app/api/index.py, so we need 3 dirnames to get to root
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from fastapi import FastAPI, Request, Response
 from telegram import Update
@@ -62,7 +63,7 @@ async def bot_info():
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page():
-    template_path = os.path.join(os.path.dirname(__file__), '..', 'app', 'templates', 'login.html')
+    template_path = os.path.join(os.path.dirname(__file__), '..', 'templates', 'login.html')
     try:
         with open(template_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
@@ -117,7 +118,7 @@ from app.models import User, Transaction, TransactionType
 from sqlalchemy import select, desc
 import datetime
 
-templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), '..', 'app', 'templates'))
+templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), '..', 'templates'))
 
 @app.get("/api/auth/token")
 async def token_auth(request: Request, response: Response):
