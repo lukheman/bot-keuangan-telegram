@@ -19,9 +19,22 @@ class Settings(BaseSettings):
             elif v.startswith("postgresql://") and not v.startswith("postgresql+asyncpg://"):
                 v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
             
-            # Fix asyncpg sslmode issue
-            if "sslmode=" in v:
-                v = v.replace("sslmode=", "ssl=")
+            # Clean up asyncpg unsupported query parameters
+            if "?" in v:
+                from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
+                parsed = urlparse(v)
+                if parsed.query:
+                    qs = parse_qsl(parsed.query)
+                    new_qs = []
+                    for key, val in qs:
+                        if key == "sslmode":
+                            new_qs.append(("ssl", val))
+                        elif key == "channel_binding":
+                            continue # asyncpg doesn't support this
+                        else:
+                            new_qs.append((key, val))
+                    parsed = parsed._replace(query=urlencode(new_qs))
+                    v = urlunparse(parsed)
         return v
 
     class Config:
