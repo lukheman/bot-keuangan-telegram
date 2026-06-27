@@ -32,7 +32,7 @@ async def analyze_transaction(image_path: str) -> TransactionResult:
 
     if not client:
         logger.error("GROQ_API_KEY belum dikonfigurasi.")
-        return TransactionResult("EXPENSE", 0, "", "Lainnya", 0.0, "", False, "GROQ_API_KEY belum dikonfigurasi di .env")
+        return TransactionResult("EXPENSE", 0, "", "Lainnya", "Utama", 0.0, "", False, "GROQ_API_KEY belum dikonfigurasi di .env")
 
     try:
         base64_image = encode_image(image_path)
