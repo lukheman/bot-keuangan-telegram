@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sys
+import json
 
 # Ensure the root directory is in the python path
 # Now located at app/api/index.py, so we need 3 dirnames to get to root
@@ -63,8 +64,8 @@ async def bot_info():
 
 @app.get("/manifest.json")
 async def get_manifest():
-    return {
-        "name": "Bot Keuangan",
+    manifest_data = {
+        "name": "Bot Keuangan Pintar",
         "short_name": "Keuangan",
         "start_url": "/dashboard",
         "display": "standalone",
@@ -73,12 +74,19 @@ async def get_manifest():
         "icons": [
             {
                 "src": "https://cdn-icons-png.flaticon.com/512/2933/2933116.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable"
+            },
+            {
+                "src": "https://cdn-icons-png.flaticon.com/512/2933/2933116.png",
                 "sizes": "512x512",
                 "type": "image/png",
                 "purpose": "any maskable"
             }
         ]
     }
+    return Response(content=json.dumps(manifest_data), media_type="application/manifest+json")
 
 @app.get("/sw.js")
 async def get_sw():
