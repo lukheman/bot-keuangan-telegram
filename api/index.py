@@ -49,6 +49,8 @@ async def telegram_webhook(request: Request):
         logger.error(f"Error handling webhook: {e}")
         return Response(status_code=500, content="Internal Server Error")
 
+from fastapi.responses import HTMLResponse
+
 @app.get("/")
 @app.get("/api/webhook")
 async def bot_info():
@@ -57,3 +59,13 @@ async def bot_info():
         "message": "Bot Keuangan berjalan normal di Vercel Serverless.",
         "telegram_webhook_ready": True
     }
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page():
+    template_path = os.path.join(os.path.dirname(__file__), '..', 'app', 'templates', 'login.html')
+    try:
+        with open(template_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content, status_code=200)
+    except FileNotFoundError:
+        return HTMLResponse(content="<h1>Template tidak ditemukan</h1>", status_code=404)

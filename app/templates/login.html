@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Bot Keuangan Pintar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --primary-glow: rgba(99, 102, 241, 0.5);
+            --secondary-glow: rgba(236, 72, 153, 0.5);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Abstract Background Blobs */
+        .blob {
+            position: absolute;
+            filter: blur(80px);
+            z-index: 0;
+            opacity: 0.6;
+            animation: float 10s infinite ease-in-out alternate;
+        }
+        .blob-1 {
+            width: 400px;
+            height: 400px;
+            background: var(--primary-glow);
+            top: -100px;
+            left: -100px;
+            border-radius: 50%;
+        }
+        .blob-2 {
+            width: 300px;
+            height: 300px;
+            background: var(--secondary-glow);
+            bottom: -50px;
+            right: -50px;
+            border-radius: 50%;
+            animation-delay: -5s;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(30px, 50px) scale(1.1); }
+        }
+
+        /* Glassmorphism Card */
+        .login-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 48px;
+            width: 100%;
+            max-width: 420px;
+            z-index: 10;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transform: translateY(20px);
+            opacity: 0;
+            animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes slideUp {
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .logo {
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, #6366f1, #ec4899);
+            border-radius: 18px;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+
+        .telegram-widget-container {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 32px 24px;
+            transition: all 0.3s ease;
+        }
+
+        .telegram-widget-container:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* Fake the Telegram button loading state nicely */
+        .widget-placeholder {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .features {
+            margin-top: 40px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .feature-badge {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .feature-badge i {
+            color: #10b981;
+        }
+    </style>
+</head>
+<body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+    <div class="login-card">
+        <div class="logo">✨</div>
+        <h1>Bot Keuangan</h1>
+        <p class="subtitle">Masuk ke Dashboard Analitik untuk memantau pengeluaran dan pemasukan Anda dengan grafis memukau.</p>
+
+        <div class="telegram-widget-container">
+            <div class="widget-placeholder">Autentikasi Aman via Telegram</div>
+            <!-- Telegram Login Widget -->
+            <!-- Ganti data-telegram-login dengan username bot Anda -->
+            <script async src="https://telegram.org/js/telegram-widget.js?22" 
+                    data-telegram-login="catatan_keuangan_akmal_bot" 
+                    data-size="large" 
+                    data-radius="12"
+                    data-auth-url="https://bot-keuangan-telegram.vercel.app/api/auth" 
+                    data-request-access="write"></script>
+        </div>
+
+        <div class="features">
+            <span class="feature-badge"><i>✓</i> Tanpa Password</span>
+            <span class="feature-badge"><i>✓</i> 100% Aman</span>
+        </div>
+    </div>
+</body>
+</html>
