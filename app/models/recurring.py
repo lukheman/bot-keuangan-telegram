@@ -1,4 +1,5 @@
 import uuid
+import enum
 from datetime import date
 from typing import Optional
 from decimal import Decimal
@@ -6,7 +7,12 @@ from sqlalchemy import ForeignKey, String, Numeric, Enum, Date, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
 from app.models.category import TransactionType
-from app.models.budget import Period
+
+class Period(str, enum.Enum):
+    DAILY = "DAILY"
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
+    YEARLY = "YEARLY"
 
 class RecurringTransaction(BaseModel):
     __tablename__ = "recurring_transactions"

@@ -22,7 +22,6 @@ class Category(BaseModel):
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="categories")
     transactions: Mapped[List["Transaction"]] = relationship("Transaction", back_populates="category")
-    budgets: Mapped[List["Budget"]] = relationship("Budget", back_populates="category")
     recurring_transactions: Mapped[List["RecurringTransaction"]] = relationship("RecurringTransaction", back_populates="category")
 
     def __repr__(self) -> str:

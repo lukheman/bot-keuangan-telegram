@@ -16,7 +16,6 @@ class User(BaseModel):
     # Relationships (menggunakan string quotes untuk menghindari circular import)
     categories: Mapped[List["Category"]] = relationship("Category", back_populates="user", cascade="all, delete-orphan")
     transactions: Mapped[List["Transaction"]] = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
-    budgets: Mapped[List["Budget"]] = relationship("Budget", back_populates="user", cascade="all, delete-orphan")
     recurring_transactions: Mapped[List["RecurringTransaction"]] = relationship("RecurringTransaction", back_populates="user", cascade="all, delete-orphan")
     wallets: Mapped[List["Wallet"]] = relationship("Wallet", back_populates="user", cascade="all, delete-orphan")
 
