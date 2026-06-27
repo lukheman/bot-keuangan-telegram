@@ -175,14 +175,17 @@ async def dashboard(request: Request):
             wallets = (await session.execute(wallet_stmt)).scalars().all()
             total_balance = sum(w.balance for w in wallets)
             
-            return templates.TemplateResponse("dashboard.html", {
-                "request": request,
-                "user": user,
-                "transactions": transactions,
-                "total_income": float(total_income),
-                "total_expense": float(total_expense),
-                "total_balance": float(total_balance)
-            })
+            return templates.TemplateResponse(
+                request=request,
+                name="dashboard.html",
+                context={
+                    "user": user,
+                    "transactions": transactions,
+                    "total_income": float(total_income),
+                    "total_expense": float(total_expense),
+                    "total_balance": float(total_balance)
+                }
+            )
             
     except jwt.InvalidTokenError:
         return RedirectResponse(url="/login")
