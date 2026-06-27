@@ -12,6 +12,7 @@ dependencies = [
     "groq>=1.5.0",
     "gspread>=6.2.1",
     "pydantic-settings>=2.14.2",
+    "pyjwt>=2.13.0",
     "python-dotenv>=1.2.2",
     "python-telegram-bot[webhooks]>=22.8",
     "sqlalchemy>=2.0.51",
