@@ -213,11 +213,20 @@ async def set_primary_wallet(wallet_id: str, request: Request):
             user = (await session.execute(select(User).where(User.telegram_id == telegram_id))).scalar_one_or_none()
             if not user: return Response(status_code=401)
             
+            from app.models import Wallet
             await session.execute(
                 sa.update(Wallet).where(Wallet.user_id == user.id).values(is_primary=False)
             )
+            
+            # import uuid
+            import uuid
+            try:
+                wallet_uuid = uuid.UUID(wallet_id)
+            except ValueError:
+                return Response(status_code=400)
+                
             await session.execute(
-                sa.update(Wallet).where(Wallet.id == wallet_id, Wallet.user_id == user.id).values(is_primary=True)
+                sa.update(Wallet).where(Wallet.id == wallet_uuid, Wallet.user_id == user.id).values(is_primary=True)
             )
             await session.commit()
             
@@ -260,7 +269,13 @@ async def update_wallet(wallet_id: str, request: Request):
             if not user: return Response(status_code=401)
             
             from app.models import Wallet
-            wallet = (await session.execute(select(Wallet).where(Wallet.id == wallet_id, Wallet.user_id == user.id))).scalar_one_or_none()
+            import uuid
+            try:
+                wallet_uuid = uuid.UUID(wallet_id)
+            except ValueError:
+                return Response(status_code=400)
+                
+            wallet = (await session.execute(select(Wallet).where(Wallet.id == wallet_uuid, Wallet.user_id == user.id))).scalar_one_or_none()
             if not wallet: return Response(status_code=404)
             
             if "name" in data: wallet.name = data["name"]
@@ -284,7 +299,13 @@ async def delete_wallet(wallet_id: str, request: Request):
             if not user: return Response(status_code=401)
             
             from app.models import Wallet, Transaction
-            wallet = (await session.execute(select(Wallet).where(Wallet.id == wallet_id, Wallet.user_id == user.id))).scalar_one_or_none()
+            import uuid
+            try:
+                wallet_uuid = uuid.UUID(wallet_id)
+            except ValueError:
+                return Response(status_code=400)
+                
+            wallet = (await session.execute(select(Wallet).where(Wallet.id == wallet_uuid, Wallet.user_id == user.id))).scalar_one_or_none()
             if not wallet: return Response(status_code=404)
             
             # Delete related transactions first to prevent foreign key errors
