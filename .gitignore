@@ -13,3 +13,4 @@ wheels/
 .env
 .vercel
 .env*
+node_modules/

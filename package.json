@@ -1,0 +1,12 @@
+{
+  "name": "bot-keuangan-telegram",
+  "version": "1.0.0",
+  "description": "Bot Keuangan Telegram with Web Analytics",
+  "private": true,
+  "scripts": {
+    "analytics": "echo 'Analytics configured'"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^1.4.1"
+  }
+}
