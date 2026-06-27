@@ -36,11 +36,11 @@ async def analyze_transaction(image_path: str, caption: str = None) -> Transacti
 
     try:
         base64_image = encode_image(image_path)
-        
+
         prompt_text = VISION_EXTRACTION_PROMPT
         if caption:
-            prompt_text += f"\n\nCATATAN TAMBAHAN DARI PENGGUNA (Gunakan referensi ini untuk menentukan tipe, deskripsi, dll jika sesuai):\n\"{caption}\""
-            
+            prompt_text += f"\n\nINSTRUKSI SANGAT PENTING \nPengguna memberikan caption/teks berikut bersamaan dengan gambar: \"{caption}\"\nKamu WAJIB menjadikan teks ini sebagai prioritas UTAMA penentu jenis transaksi (INCOME atau EXPENSE). Jika pengguna bilang ini pemasukan/pendapatan, paksa 'type' menjadi 'INCOME' walaupun gambarnya terlihat seperti struk belanja biasa!"
+
         response = await client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
