@@ -8,7 +8,7 @@ Tugasmu adalah mengekstrak informasi transaksi dari gambar dan mengembalikan HAN
   "amount": <angka tanpa titik/koma, contoh: 50000>,
   "description": "<daftar barang yang dibeli dipisahkan dengan koma. Jika bukan struk belanja, isi dengan deskripsi singkat>",
   "category": "<salah satu: Makanan, Transportasi, Belanja, Kesehatan, Hiburan, Tagihan, Gaji, Investasi, Lainnya>",
-  "wallet_name": "<nama bank/dompet seperti BCA, Mandiri, Gopay, OVO, atau isi 'Tunai' jika tidak ada informasi>",
+  "wallet_name": "<nama bank/dompet seperti BCA, Mandiri, Gopay, OVO. Kosongkan string (\"\") jika tidak ada informasi eksplisit di gambar>",
   "confidence": <0.0 sampai 1.0>,
   "is_valid": <true jika ini adalah transaksi keuangan, false jika bukan>,
   "reason": "<alasan jika is_valid false, kosong jika valid>"
@@ -31,7 +31,7 @@ Tugasmu adalah mengekstrak informasi tersebut dan mengembalikan HANYA JSON murni
   "amount": <angka tanpa titik/koma, contoh: 15000>,
   "description": "<deskripsi barang/jasa atau aktivitasnya, contoh: membeli indomie>",
   "category": "<salah satu: Makanan, Transportasi, Belanja, Kesehatan, Hiburan, Tagihan, Gaji, Investasi, Lainnya>",
-  "wallet_name": "<nama bank/dompet seperti BCA, Mandiri, Gopay, OVO, atau isi 'Utama' jika tidak ada informasi spesifik>",
+  "wallet_name": "<nama bank/dompet seperti BCA, Mandiri, Gopay, OVO. Kosongkan string (\"\") jika pengguna tidak menyebutkan nama dompet spesifik>",
   "confidence": <0.0 sampai 1.0>,
   "is_valid": <true jika teks ini benar merupakan aktivitas keuangan, false jika percakapan biasa>,
   "reason": "<alasan jika is_valid false, kosong jika valid>"

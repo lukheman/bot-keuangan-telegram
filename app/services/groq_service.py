@@ -74,7 +74,7 @@ async def analyze_transaction(image_path: str, caption: str = None) -> Transacti
             amount=float(data.get("amount", 0)),
             description=data.get("description", "Transaksi"),
             category=data.get("category", "Lainnya"),
-            wallet_name=data.get("wallet_name", "Utama"),
+            wallet_name=data.get("wallet_name") if data.get("wallet_name") else None,
             confidence=float(data.get("confidence", 0.5)),
             raw_text="",
             is_valid=data.get("is_valid", True),
@@ -88,7 +88,7 @@ async def analyze_transaction(image_path: str, caption: str = None) -> Transacti
             amount=0,
             description="",
             category="Lainnya",
-            wallet_name="Utama",
+            wallet_name=None,
             confidence=0.0,
             raw_text="",
             is_valid=False,
@@ -124,7 +124,7 @@ async def analyze_text_transaction(text: str) -> TransactionResult:
             amount=float(data.get("amount", 0)),
             description=data.get("description", "Transaksi"),
             category=data.get("category", "Lainnya"),
-            wallet_name=data.get("wallet_name", "Utama"),
+            wallet_name=data.get("wallet_name") if data.get("wallet_name") else None,
             confidence=float(data.get("confidence", 0.9)),
             raw_text=text,
             is_valid=data.get("is_valid", True),
@@ -135,6 +135,6 @@ async def analyze_text_transaction(text: str) -> TransactionResult:
         logger.error(f"Gagal menganalisis teks dengan Groq: {str(e)}", exc_info=True)
         return TransactionResult(
             type="EXPENSE", amount=0, description="", category="Lainnya",
-            wallet_name="Utama", confidence=0.0, raw_text=text,
+            wallet_name=None, confidence=0.0, raw_text=text,
             is_valid=False, reason=f"Gagal menganalisis teks: {str(e)}"
         )
