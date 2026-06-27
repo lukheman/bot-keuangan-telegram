@@ -1,6 +1,8 @@
 import gspread
 import logging
 import asyncio
+import json
+import base64
 from datetime import datetime
 from app.core.config import settings
 from app.models import Transaction, TransactionType
@@ -9,11 +11,17 @@ logger = logging.getLogger(__name__)
 
 gc = None
 try:
-    # Memerlukan 'account.json' di direktori akar proyek
-    gc = gspread.service_account(filename="account.json")
-    logger.info("Service Account Google Sheets berhasil diinisialisasi.")
+    if settings.GOOGLE_SHEETS_CREDENTIALS_B64:
+        creds_json = base64.b64decode(settings.GOOGLE_SHEETS_CREDENTIALS_B64).decode('utf-8')
+        creds_dict = json.loads(creds_json)
+        gc = gspread.service_account_from_dict(creds_dict)
+        logger.info("Service Account Google Sheets berhasil diinisialisasi dari base64.")
+    else:
+        # Memerlukan 'account.json' di direktori akar proyek
+        gc = gspread.service_account(filename="account.json")
+        logger.info("Service Account Google Sheets berhasil diinisialisasi dari account.json.")
 except Exception as e:
-    logger.warning(f"Gagal menginisialisasi Google Sheets (account.json tidak valid atau tidak ditemukan): {e}")
+    logger.warning(f"Gagal menginisialisasi Google Sheets (kredensial tidak valid atau tidak ditemukan): {e}")
 
 def _append_to_sheet_sync(tx: Transaction):
     if not gc or not settings.GOOGLE_SHEET_ID:

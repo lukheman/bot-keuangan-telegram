@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     GOOGLE_SHEET_ID: str | None = None
     WEBHOOK_URL: str | None = None
     PORT: int = 8443
+    GOOGLE_SHEETS_CREDENTIALS_B64: str | None = None
 
     class Config:
         env_file = ".env"
