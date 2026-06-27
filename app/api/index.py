@@ -224,3 +224,74 @@ async def set_primary_wallet(wallet_id: str, request: Request):
             return {"status": "success"}
     except jwt.InvalidTokenError:
         return Response(status_code=401)
+
+@app.post("/api/wallets")
+async def create_wallet(request: Request):
+    token = request.cookies.get("auth_token")
+    if not token: return Response(status_code=401)
+    try:
+        payload = jwt.decode(token, settings.TELEGRAM_TOKEN, algorithms=["HS256"])
+        telegram_id = payload.get("telegram_id")
+        data = await request.json()
+        
+        async with AsyncSessionLocal() as session:
+            user = (await session.execute(select(User).where(User.telegram_id == telegram_id))).scalar_one_or_none()
+            if not user: return Response(status_code=401)
+            
+            from app.models import Wallet
+            new_wallet = Wallet(user_id=user.id, name=data.get("name"), balance=data.get("balance", 0), is_primary=False)
+            session.add(new_wallet)
+            await session.commit()
+            return {"status": "success"}
+    except Exception as e:
+        return Response(status_code=400)
+
+@app.put("/api/wallets/{wallet_id}")
+async def update_wallet(wallet_id: str, request: Request):
+    token = request.cookies.get("auth_token")
+    if not token: return Response(status_code=401)
+    try:
+        payload = jwt.decode(token, settings.TELEGRAM_TOKEN, algorithms=["HS256"])
+        telegram_id = payload.get("telegram_id")
+        data = await request.json()
+        
+        async with AsyncSessionLocal() as session:
+            user = (await session.execute(select(User).where(User.telegram_id == telegram_id))).scalar_one_or_none()
+            if not user: return Response(status_code=401)
+            
+            from app.models import Wallet
+            wallet = (await session.execute(select(Wallet).where(Wallet.id == wallet_id, Wallet.user_id == user.id))).scalar_one_or_none()
+            if not wallet: return Response(status_code=404)
+            
+            if "name" in data: wallet.name = data["name"]
+            if "balance" in data: wallet.balance = data["balance"]
+            
+            await session.commit()
+            return {"status": "success"}
+    except Exception as e:
+        return Response(status_code=400)
+
+@app.delete("/api/wallets/{wallet_id}")
+async def delete_wallet(wallet_id: str, request: Request):
+    token = request.cookies.get("auth_token")
+    if not token: return Response(status_code=401)
+    try:
+        payload = jwt.decode(token, settings.TELEGRAM_TOKEN, algorithms=["HS256"])
+        telegram_id = payload.get("telegram_id")
+        
+        async with AsyncSessionLocal() as session:
+            user = (await session.execute(select(User).where(User.telegram_id == telegram_id))).scalar_one_or_none()
+            if not user: return Response(status_code=401)
+            
+            from app.models import Wallet, Transaction
+            wallet = (await session.execute(select(Wallet).where(Wallet.id == wallet_id, Wallet.user_id == user.id))).scalar_one_or_none()
+            if not wallet: return Response(status_code=404)
+            
+            # Delete related transactions first to prevent foreign key errors
+            await session.execute(sa.delete(Transaction).where(Transaction.wallet_id == wallet.id))
+            await session.delete(wallet)
+            await session.commit()
+            return {"status": "success"}
+    except Exception as e:
+        return Response(status_code=400)
+

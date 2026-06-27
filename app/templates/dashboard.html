@@ -254,7 +254,12 @@
         </div>
 
         <div class="panel" style="margin-bottom: 20px;">
-            <h2>Manajemen Dompet</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Manajemen Dompet</h2>
+                <button onclick="openAddWalletModal()" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: 0.3s; font-size: 13px; font-weight: 500;">
+                    + Tambah Dompet
+                </button>
+            </div>
             <div style="display: flex; flex-direction: column; gap: 15px;">
                 {% for w in wallets %}
                 <div style="background: rgba(0,0,0,0.2); border: 1px solid {% if w.is_primary %}rgba(16, 185, 129, 0.5){% else %}rgba(255,255,255,0.05){% endif %}; padding: 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
@@ -262,11 +267,19 @@
                         <div style="font-weight: 600; font-size: 16px;">{{ w.name }} {% if w.is_primary %}<span class="badge badge-income" style="margin-left: 8px;">Utama</span>{% endif %}</div>
                         <div style="color: var(--text-muted); font-size: 14px; margin-top: 5px;">Rp {{ "{:,.0f}".format(w.balance).replace(',', '.') }}</div>
                     </div>
-                    {% if not w.is_primary %}
-                    <button onclick="setPrimaryWallet('{{ w.id }}')" style="background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: 0.3s; font-size: 13px; font-weight: 500;">
-                        Jadikan Utama
-                    </button>
-                    {% endif %}
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="openEditWalletModal('{{ w.id }}', '{{ w.name }}', {{ w.balance }})" style="background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); padding: 8px 12px; border-radius: 8px; cursor: pointer; transition: 0.3s; font-size: 13px;">
+                            Edit
+                        </button>
+                        <button onclick="deleteWallet('{{ w.id }}')" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); padding: 8px 12px; border-radius: 8px; cursor: pointer; transition: 0.3s; font-size: 13px;">
+                            Hapus
+                        </button>
+                        {% if not w.is_primary %}
+                        <button onclick="setPrimaryWallet('{{ w.id }}')" style="background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: 0.3s; font-size: 13px; font-weight: 500;">
+                            Utamakan
+                        </button>
+                        {% endif %}
+                    </div>
                 </div>
                 {% else %}
                 <div style="text-align: center; color: var(--text-muted); padding: 20px;">Belum ada dompet.</div>
@@ -312,7 +325,81 @@
         </div>
     </div>
 
+    <!-- Wallet Modal -->
+    <div id="walletModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: #1e293b; padding: 30px; border-radius: 16px; width: 90%; max-width: 400px; border: 1px solid rgba(255,255,255,0.1);">
+            <h3 id="walletModalTitle" style="margin-top: 0; margin-bottom: 20px;">Tambah Dompet</h3>
+            <input type="hidden" id="walletId">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 14px;">Nama Dompet</label>
+                <input type="text" id="walletName" style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; box-sizing: border-box;" placeholder="Misal: BCA">
+            </div>
+            <div style="margin-bottom: 25px;">
+                <label style="display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 14px;">Saldo (Rp)</label>
+                <input type="number" id="walletBalance" style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; box-sizing: border-box;" placeholder="0">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button onclick="closeWalletModal()" style="background: rgba(255,255,255,0.1); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Batal</button>
+                <button onclick="saveWallet()" style="background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold;">Simpan</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        function openAddWalletModal() {
+            document.getElementById('walletModalTitle').innerText = 'Tambah Dompet';
+            document.getElementById('walletId').value = '';
+            document.getElementById('walletName').value = '';
+            document.getElementById('walletBalance').value = '';
+            document.getElementById('walletModal').style.display = 'flex';
+        }
+
+        function openEditWalletModal(id, name, balance) {
+            document.getElementById('walletModalTitle').innerText = 'Edit Dompet';
+            document.getElementById('walletId').value = id;
+            document.getElementById('walletName').value = name;
+            document.getElementById('walletBalance').value = balance;
+            document.getElementById('walletModal').style.display = 'flex';
+        }
+
+        function closeWalletModal() {
+            document.getElementById('walletModal').style.display = 'none';
+        }
+
+        async function saveWallet() {
+            const id = document.getElementById('walletId').value;
+            const name = document.getElementById('walletName').value;
+            const balance = document.getElementById('walletBalance').value;
+            
+            if (!name) return alert('Nama dompet harus diisi');
+            
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? `/api/wallets/${id}` : '/api/wallets';
+            
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, balance: parseFloat(balance) || 0 })
+                });
+                if (res.ok) window.location.reload();
+                else alert('Gagal menyimpan dompet');
+            } catch (err) {
+                alert('Terjadi kesalahan jaringan');
+            }
+        }
+        
+        async function deleteWallet(id) {
+            if (!confirm('Apakah Anda yakin ingin menghapus dompet ini? Semua transaksi terkait juga akan terhapus.')) return;
+            try {
+                const res = await fetch(`/api/wallets/${id}`, { method: 'DELETE' });
+                if (res.ok) window.location.reload();
+                else alert('Gagal menghapus dompet');
+            } catch (err) {
+                alert('Terjadi kesalahan jaringan');
+            }
+        }
+
         async function setPrimaryWallet(walletId) {
             try {
                 const response = await fetch(`/api/wallets/${walletId}/set-primary`, {
