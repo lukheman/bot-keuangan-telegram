@@ -59,7 +59,7 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💵 *Jumlah:* Rp{result.amount:,.0f}\n"
             f"📝 *Deskripsi:* {result.description}\n"
             f"🏷️ *Kategori:* {result.category}\n"
-            f"💼 *Dompet:* {result.wallet_name}\n"
+            f"💼 *Dompet:* {result.wallet_name or 'Dompet Utama'}\n"
             f"🎯 *Keyakinan:* {result.confidence * 100:.0f}%\n\n"
             f"Apakah data ini sudah benar?"
         )
@@ -112,7 +112,7 @@ async def konfirmasi_transaksi(update: Update, context: ContextTypes.DEFAULT_TYP
             f"💵 *Jumlah:* Rp{tx_data['amount']:,.0f}\n"
             f"📝 *Deskripsi:* {tx_data['description']}\n"
             f"🏷️ *Kategori:* {tx_data['category']}\n"
-            f"💼 *Dompet:* {tx_data.get('wallet_name', 'Utama')}\n\n"
+            f"💼 *Dompet:* {tx_data.get('wallet_name') or 'Dompet Utama'}\n\n"
             f"Apakah data ini sudah benar?"
         )
         await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
@@ -128,7 +128,7 @@ async def konfirmasi_transaksi(update: Update, context: ContextTypes.DEFAULT_TYP
         amount = tx_data["amount"]
         description = tx_data["description"]
         category = tx_data["category"]
-        wallet_name = tx_data.get("wallet_name", "Utama")
+        wallet_name = tx_data.get("wallet_name") or None
 
         try:
             logger.info(f"User {update.effective_user.id} mengkonfirmasi transaksi {tx_id} ({tx_type.value} {amount})")
@@ -144,7 +144,7 @@ async def konfirmasi_transaksi(update: Update, context: ContextTypes.DEFAULT_TYP
                 f"💵 *Jumlah:* Rp{amount:,.0f}\n"
                 f"📝 *Deskripsi:* {description}\n"
                 f"🏷️ *Kategori:* {category}\n"
-                f"💼 *Dompet:* {wallet_name}",
+                f"💼 *Dompet:* {tx.wallet_name}",
                 parse_mode="Markdown"
             )
             del context.user_data[tx_id]
@@ -182,6 +182,7 @@ async def _catat_transaksi(update: Update, context: ContextTypes.DEFAULT_TYPE, t
             f"{icon} *{jenis} Berhasil Dicatat!*\n\n"
             f"💵 *Jumlah:* Rp{amount:,.0f}\n"
             f"📝 *Deskripsi:* {description}\n"
+            f"💼 *Dompet:* {tx.wallet_name}\n"
             f"📅 *Tanggal:* {date.today().strftime('%d %b %Y')}",
             parse_mode="Markdown"
         )
@@ -238,7 +239,7 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💵 *Jumlah:* Rp{result.amount:,.0f}\n"
             f"📝 *Deskripsi:* {result.description}\n"
             f"🏷️ *Kategori:* {result.category}\n"
-            f"💼 *Dompet:* {result.wallet_name}\n\n"
+            f"💼 *Dompet:* {result.wallet_name or 'Dompet Utama'}\n\n"
             f"Apakah data ini sudah benar?"
         )
 

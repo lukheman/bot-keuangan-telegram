@@ -43,22 +43,48 @@ async def get_or_create_category(session: AsyncSession, user_id, type_: Transact
     return category
 
 async def get_or_create_wallet(session: AsyncSession, user_id, wallet_name: str = None) -> Wallet:
-    name = wallet_name or "Utama"
-    stmt = select(Wallet).where(
-        Wallet.user_id == user_id,
-        Wallet.name == name
-    )
-    wallet = (await session.execute(stmt)).scalar_one_or_none()
-    
-    if not wallet:
-        wallet = Wallet(
-            user_id=user_id,
-            name=name,
-            balance=decimal.Decimal(0.0)
+    if wallet_name:
+        stmt = select(Wallet).where(
+            Wallet.user_id == user_id,
+            Wallet.name.ilike(wallet_name)
         )
-        session.add(wallet)
-        await session.flush()
-    return wallet
+        wallet = (await session.execute(stmt)).scalar_one_or_none()
+        
+        if not wallet:
+            wallet = Wallet(
+                user_id=user_id,
+                name=wallet_name,
+                balance=decimal.Decimal(0.0),
+                is_primary=False
+            )
+            session.add(wallet)
+            await session.flush()
+        return wallet
+    else:
+        # Default to primary wallet
+        stmt = select(Wallet).where(
+            Wallet.user_id == user_id,
+            Wallet.is_primary == True
+        )
+        wallet = (await session.execute(stmt)).scalar_one_or_none()
+        
+        if not wallet:
+            # Fallback to the first wallet if no primary is set
+            stmt = select(Wallet).where(Wallet.user_id == user_id).order_by(Wallet.created_at)
+            wallet = (await session.execute(stmt)).scalar_one_or_none()
+            
+        if not wallet:
+            # If completely empty, create "Utama" and make it primary
+            wallet = Wallet(
+                user_id=user_id,
+                name="Utama",
+                balance=decimal.Decimal(0.0),
+                is_primary=True
+            )
+            session.add(wallet)
+            await session.flush()
+            
+        return wallet
 
 async def record_transaction(telegram_user, amount: decimal.Decimal, description: str, tx_type: TransactionType, category_name: str = None, wallet_name: str = None) -> Transaction:
     async with AsyncSessionLocal() as session:
