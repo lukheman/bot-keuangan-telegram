@@ -27,8 +27,8 @@ def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
-async def analyze_transaction(image_path: str) -> TransactionResult:
-    logger.info(f"Menganalisis gambar {image_path} langsung dengan Groq Vision AI.")
+async def analyze_transaction(image_path: str, caption: str = None) -> TransactionResult:
+    logger.info(f"Menganalisis gambar {image_path} langsung dengan Groq Vision AI. Caption: {caption}")
 
     if not client:
         logger.error("GROQ_API_KEY belum dikonfigurasi.")
@@ -36,13 +36,18 @@ async def analyze_transaction(image_path: str) -> TransactionResult:
 
     try:
         base64_image = encode_image(image_path)
+        
+        prompt_text = VISION_EXTRACTION_PROMPT
+        if caption:
+            prompt_text += f"\n\nCATATAN TAMBAHAN DARI PENGGUNA (Gunakan referensi ini untuk menentukan tipe, deskripsi, dll jika sesuai):\n\"{caption}\""
+            
         response = await client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": VISION_EXTRACTION_PROMPT},
+                        {"type": "text", "text": prompt_text},
                         {
                             "type": "image_url",
                             "image_url": {

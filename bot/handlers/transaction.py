@@ -17,6 +17,7 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         photo = update.message.photo[-1]
+        caption = update.message.caption
         file = await context.bot.get_file(photo.file_id)
         file_path = f"/tmp/temp_{update.effective_user.id}.jpg"
         
@@ -24,7 +25,7 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await file.download_to_drive(file_path)
 
         # Proses gambar secara langsung ke AI Vision (Tanpa Tesseract OCR)
-        result = await analyze_transaction(file_path)
+        result = await analyze_transaction(file_path, caption=caption)
         os.remove(file_path)
 
         if not result.is_valid:
