@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | Bot Keuangan Pintar</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#10b981">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2933/2933116.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-color: #0f172a;
@@ -155,6 +158,20 @@
             color: #10b981;
         }
     </style>
+    <script>
+        function copyBotUsername() {
+            navigator.clipboard.writeText('@NusantaraTestBot');
+            const tooltip = document.getElementById('tooltip');
+            tooltip.classList.add('visible');
+            setTimeout(() => {
+                tooltip.classList.remove('visible');
+            }, 2000);
+        }
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
 </head>
 <body>
     <div class="blob blob-1"></div>

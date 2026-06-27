@@ -61,6 +61,44 @@ async def bot_info():
         "telegram_webhook_ready": True
     }
 
+@app.get("/manifest.json")
+async def get_manifest():
+    return {
+        "name": "Bot Keuangan",
+        "short_name": "Keuangan",
+        "start_url": "/dashboard",
+        "display": "standalone",
+        "background_color": "#0f172a",
+        "theme_color": "#10b981",
+        "icons": [
+            {
+                "src": "https://cdn-icons-png.flaticon.com/512/2933/2933116.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable"
+            }
+        ]
+    }
+
+@app.get("/sw.js")
+async def get_sw():
+    js_content = """
+const CACHE_NAME = 'keuangan-pwa-v1';
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll([
+      '/login'
+    ]))
+  );
+});
+self.addEventListener('fetch', (e) => {
+  e.respondWith(
+    caches.match(e.request).then((response) => response || fetch(e.request))
+  );
+});
+"""
+    return Response(content=js_content, media_type="application/javascript")
+
 @app.get("/login", response_class=HTMLResponse)
 async def login_page():
     template_path = os.path.join(os.path.dirname(__file__), '..', 'templates', 'login.html')
