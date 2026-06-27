@@ -11,6 +11,7 @@ class Wallet(BaseModel):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     name: Mapped[str] = mapped_column(String(50))
     balance: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0.0)
+    is_primary: Mapped[bool] = mapped_column(default=False)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="wallets")

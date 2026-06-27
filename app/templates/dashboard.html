@@ -253,6 +253,27 @@
             </div>
         </div>
 
+        <div class="panel" style="margin-bottom: 20px;">
+            <h2>Manajemen Dompet</h2>
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                {% for w in wallets %}
+                <div style="background: rgba(0,0,0,0.2); border: 1px solid {% if w.is_primary %}rgba(16, 185, 129, 0.5){% else %}rgba(255,255,255,0.05){% endif %}; padding: 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; font-size: 16px;">{{ w.name }} {% if w.is_primary %}<span class="badge badge-income" style="margin-left: 8px;">Utama</span>{% endif %}</div>
+                        <div style="color: var(--text-muted); font-size: 14px; margin-top: 5px;">Rp {{ "{:,.0f}".format(w.balance).replace(',', '.') }}</div>
+                    </div>
+                    {% if not w.is_primary %}
+                    <button onclick="setPrimaryWallet('{{ w.id }}')" style="background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: 0.3s; font-size: 13px; font-weight: 500;">
+                        Jadikan Utama
+                    </button>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div style="text-align: center; color: var(--text-muted); padding: 20px;">Belum ada dompet.</div>
+                {% endfor %}
+            </div>
+        </div>
+
         <div class="main-grid">
             <div class="panel">
                 <h2>Riwayat Transaksi Terbaru</h2>
@@ -292,6 +313,21 @@
     </div>
 
     <script>
+        async function setPrimaryWallet(walletId) {
+            try {
+                const response = await fetch(`/api/wallets/${walletId}/set-primary`, {
+                    method: 'POST'
+                });
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Gagal mengatur dompet utama.');
+                }
+            } catch (err) {
+                alert('Terjadi kesalahan jaringan.');
+            }
+        }
+
         const ctx = document.getElementById('myChart').getContext('2d');
         const myChart = new Chart(ctx, {
             type: 'doughnut',

@@ -183,7 +183,8 @@ async def dashboard(request: Request):
                     "transactions": transactions,
                     "total_income": float(total_income),
                     "total_expense": float(total_expense),
-                    "total_balance": float(total_balance)
+                    "total_balance": float(total_balance),
+                    "wallets": wallets
                 }
             )
             
@@ -195,3 +196,30 @@ async def logout():
     response = RedirectResponse(url="/login")
     response.delete_cookie("auth_token")
     return response
+
+import sqlalchemy as sa
+@app.post("/api/wallets/{wallet_id}/set-primary")
+async def set_primary_wallet(wallet_id: str, request: Request):
+    token = request.cookies.get("auth_token")
+    if not token:
+        return Response(status_code=401)
+        
+    try:
+        payload = jwt.decode(token, settings.TELEGRAM_TOKEN, algorithms=["HS256"])
+        telegram_id = payload.get("telegram_id")
+        
+        async with AsyncSessionLocal() as session:
+            user = (await session.execute(select(User).where(User.telegram_id == telegram_id))).scalar_one_or_none()
+            if not user: return Response(status_code=401)
+            
+            await session.execute(
+                sa.update(Wallet).where(Wallet.user_id == user.id).values(is_primary=False)
+            )
+            await session.execute(
+                sa.update(Wallet).where(Wallet.id == wallet_id, Wallet.user_id == user.id).values(is_primary=True)
+            )
+            await session.commit()
+            
+            return {"status": "success"}
+    except jwt.InvalidTokenError:
+        return Response(status_code=401)
