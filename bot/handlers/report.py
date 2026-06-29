@@ -30,10 +30,12 @@ async def ringkasan_hari_ini(update: Update, context: ContextTypes.DEFAULT_TYPE)
     logger.info(f"User {update.effective_user.id} meminta ringkasan hari ini")
     if update.callback_query:
         await update.callback_query.answer()
+        await update.callback_query.edit_message_text("⏳ Sedang menyusun laporan hari ini...", parse_mode="Markdown")
         reply_func = update.callback_query.edit_message_text
         reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="menu_laporan")]])
     else:
-        reply_func = update.message.reply_text
+        status_msg = await update.message.reply_text("⏳ Sedang menyusun laporan hari ini...", parse_mode="Markdown")
+        reply_func = status_msg.edit_text
         reply_markup = None
         
     try:
@@ -48,10 +50,12 @@ async def ringkasan_minggu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"User {update.effective_user.id} meminta ringkasan minggu")
     if update.callback_query:
         await update.callback_query.answer()
+        await update.callback_query.edit_message_text("⏳ Sedang merangkum transaksi mingguan...", parse_mode="Markdown")
         reply_func = update.callback_query.edit_message_text
         reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="menu_laporan")]])
     else:
-        reply_func = update.message.reply_text
+        status_msg = await update.message.reply_text("⏳ Sedang merangkum transaksi mingguan...", parse_mode="Markdown")
+        reply_func = status_msg.edit_text
         reply_markup = None
         
     try:
@@ -80,10 +84,12 @@ async def ringkasan_bulan(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if update.callback_query:
         await update.callback_query.answer()
+        await update.callback_query.edit_message_text("⏳ Sedang memuat laporan bulanan...", parse_mode="Markdown")
         reply_func = update.callback_query.edit_message_text
         reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="menu_laporan")]])
     else:
-        reply_func = update.message.reply_text
+        status_msg = await update.message.reply_text("⏳ Sedang memuat laporan bulanan...", parse_mode="Markdown")
+        reply_func = status_msg.edit_text
         reply_markup = None
 
     try:
