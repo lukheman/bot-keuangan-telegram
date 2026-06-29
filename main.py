@@ -21,7 +21,6 @@ from telegram.ext import (
 from app.core.config import settings
 from bot.handlers.transaction import proses_gambar, proses_teks, catat_pemasukan, catat_pengeluaran, konfirmasi_transaksi
 from bot.handlers.report import ringkasan_hari_ini, ringkasan_minggu, ringkasan_bulan
-from bot.handlers.wallet import list_wallets, tambah_dompet, hapus_dompet
 from bot.handlers.wallet_interactive import interactive_wallet_conv, interactive_del_wallet_menu, interactive_del_wallet_action
 from bot.handlers.menu import tampilkan_menu, menu_callback
 
@@ -39,9 +38,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/hari_ini - Ringkasan hari ini\n"
         "/minggu - Ringkasan 7 hari terakhir\n"
         "/bulan [bulan] [tahun] - Ringkasan bulan tertentu\n"
-        "/dompet - Cek saldo semua dompet\n"
-        "/tambah_dompet [nama] [saldo_awal] - Buat dompet baru\n"
-        "/hapus_dompet [nama] - Hapus dompet\n"
         "/menu - Tampilkan menu interaktif"
     )
 
@@ -74,9 +70,6 @@ def create_app():
     app.add_handler(CommandHandler("hariini", ringkasan_hari_ini))
     app.add_handler(CommandHandler("minggu", ringkasan_minggu))
     app.add_handler(CommandHandler("bulan", ringkasan_bulan))
-    app.add_handler(CommandHandler("dompet", list_wallets))
-    app.add_handler(CommandHandler("tambah_dompet", tambah_dompet))
-    app.add_handler(CommandHandler("hapus_dompet", hapus_dompet))
     app.add_handler(CommandHandler("menu", tampilkan_menu))
 
     app.add_handler(interactive_wallet_conv)
