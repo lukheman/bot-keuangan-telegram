@@ -15,7 +15,7 @@ def _format_transactions(transactions, total_income, total_expense, title, inclu
 
     msg = f"📊 *{title}*\n\n"
     for tx in transactions:
-        icon = "💵" if tx.type == TransactionType.INCOME else "💸"
+        icon = "📈" if tx.type == TransactionType.INCOME else "📉"
         date_str = f"`{tx.date.strftime('%d %b')}` | " if include_date else ""
         msg += f"{date_str}{icon} Rp{tx.amount:,.0f} - {tx.description}\n"
     
