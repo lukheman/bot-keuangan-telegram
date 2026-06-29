@@ -8,6 +8,22 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+async def get_primary_wallet_name(telegram_id: int) -> str:
+    async with AsyncSessionLocal() as session:
+        stmt = select(User).where(User.telegram_id == telegram_id)
+        user = (await session.execute(stmt)).scalar_one_or_none()
+        if not user:
+            return "Utama"
+            
+        stmt = select(Wallet).where(Wallet.user_id == user.id, Wallet.is_primary == True)
+        wallet = (await session.execute(stmt)).scalar_one_or_none()
+        
+        if not wallet:
+            stmt = select(Wallet).where(Wallet.user_id == user.id).order_by(Wallet.created_at)
+            wallet = (await session.execute(stmt)).scalar_one_or_none()
+            
+        return wallet.name if wallet else "Utama"
+
 async def get_or_create_user(session: AsyncSession, telegram_id: int, username: str, full_name: str) -> User:
     stmt = select(User).where(User.telegram_id == telegram_id)
     user = (await session.execute(stmt)).scalar_one_or_none()

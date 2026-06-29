@@ -53,13 +53,18 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
+        wallet_display = result.wallet_name
+        if not wallet_display:
+            from app.services.transaction_service import get_primary_wallet_name
+            wallet_display = await get_primary_wallet_name(update.effective_user.id)
+
         msg = (
             f"🤖 *Hasil Analisis Otomatis*\n\n"
             f"{icon} *Jenis:* {jenis}\n"
             f"💵 *Jumlah:* Rp{result.amount:,.0f}\n"
             f"📝 *Deskripsi:* {result.description}\n"
             f"🏷️ *Kategori:* {result.category}\n"
-            f"💼 *Dompet:* {result.wallet_name or 'Dompet Utama'}\n"
+            f"💼 *Dompet:* {wallet_display}\n"
             f"🎯 *Keyakinan:* {result.confidence * 100:.0f}%\n\n"
             f"Apakah data ini sudah benar?"
         )
@@ -106,13 +111,18 @@ async def konfirmasi_transaksi(update: Update, context: ContextTypes.DEFAULT_TYP
 
         jenis = "Pemasukan" if tx_data["type"] == "INCOME" else "Pengeluaran"
         icon = "📈" if tx_data["type"] == "INCOME" else "📉"
+        wallet_display = tx_data.get('wallet_name')
+        if not wallet_display:
+            from app.services.transaction_service import get_primary_wallet_name
+            wallet_display = await get_primary_wallet_name(update.effective_user.id)
+
         msg = (
             f"🤖 *Hasil Analisis Otomatis (Diedit)*\n\n"
             f"{icon} *Jenis:* {jenis}\n"
             f"💵 *Jumlah:* Rp{tx_data['amount']:,.0f}\n"
             f"📝 *Deskripsi:* {tx_data['description']}\n"
             f"🏷️ *Kategori:* {tx_data['category']}\n"
-            f"💼 *Dompet:* {tx_data.get('wallet_name') or 'Dompet Utama'}\n\n"
+            f"💼 *Dompet:* {wallet_display}\n\n"
             f"Apakah data ini sudah benar?"
         )
         await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
@@ -245,13 +255,18 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
+        wallet_display = result.wallet_name
+        if not wallet_display:
+            from app.services.transaction_service import get_primary_wallet_name
+            wallet_display = await get_primary_wallet_name(update.effective_user.id)
+
         msg = (
             f"🤖 *Hasil Analisis AI (Teks)*\n\n"
             f"{icon} *Jenis:* {jenis}\n"
             f"💵 *Jumlah:* Rp{result.amount:,.0f}\n"
             f"📝 *Deskripsi:* {result.description}\n"
             f"🏷️ *Kategori:* {result.category}\n"
-            f"💼 *Dompet:* {result.wallet_name or 'Dompet Utama'}\n\n"
+            f"💼 *Dompet:* {wallet_display}\n\n"
             f"Apakah data ini sudah benar?"
         )
 
