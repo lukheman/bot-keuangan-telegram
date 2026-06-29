@@ -34,9 +34,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/start - Mulai bot\n"
         "/masuk [jumlah] [deskripsi] - Catat pemasukan\n"
         "/keluar [jumlah] [deskripsi] - Catat pengeluaran\n"
-        "/hari_ini - Ringkasan hari ini\n"
-        "/minggu - Ringkasan 7 hari terakhir\n"
-        "/bulan [bulan] [tahun] - Ringkasan bulan tertentu\n"
         "/menu - Tampilkan menu interaktif"
     )
 
@@ -53,10 +50,6 @@ def create_app():
     
     app.add_handler(CommandHandler("masuk", catat_pemasukan))
     app.add_handler(CommandHandler("keluar", catat_pengeluaran))
-    app.add_handler(CommandHandler("hari_ini", ringkasan_hari_ini))
-    app.add_handler(CommandHandler("hariini", ringkasan_hari_ini))
-    app.add_handler(CommandHandler("minggu", ringkasan_minggu))
-    app.add_handler(CommandHandler("bulan", ringkasan_bulan))
     app.add_handler(CommandHandler("menu", tampilkan_menu))
 
     app.add_handler(interactive_wallet_conv)
@@ -65,10 +58,10 @@ def create_app():
     app.add_handler(MessageHandler(filters.PHOTO, proses_gambar))
 
     # Handler untuk menu laporan interaktif (Reply Keyboard)
-    app.add_handler(MessageHandler(filters.Regex("^📅 Laporan Hari Ini$"), ringkasan_hari_ini))
-    app.add_handler(MessageHandler(filters.Regex("^📆 Laporan Minggu Ini$"), ringkasan_minggu))
-    app.add_handler(MessageHandler(filters.Regex("^📊 Laporan Bulan Ini$"), ringkasan_bulan))
-    app.add_handler(MessageHandler(filters.Regex("^🔙 Tutup Menu Laporan$"), tutup_menu_laporan))
+    app.add_handler(MessageHandler(filters.Regex("(?i).*Laporan Hari Ini.*"), ringkasan_hari_ini))
+    app.add_handler(MessageHandler(filters.Regex("(?i).*Laporan Minggu Ini.*"), ringkasan_minggu))
+    app.add_handler(MessageHandler(filters.Regex("(?i).*Laporan Bulan Ini.*"), ringkasan_bulan))
+    app.add_handler(MessageHandler(filters.Regex("(?i).*Tutup Menu Laporan.*"), tutup_menu_laporan))
 
     # Handler untuk teks biasa (NLP)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, proses_teks))
