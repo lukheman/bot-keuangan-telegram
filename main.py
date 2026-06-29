@@ -22,7 +22,7 @@ from app.core.config import settings
 from bot.handlers.transaction import proses_gambar, proses_teks, catat_pemasukan, catat_pengeluaran, konfirmasi_transaksi
 from bot.handlers.report import ringkasan_hari_ini, ringkasan_minggu, ringkasan_bulan
 from bot.handlers.wallet_interactive import interactive_wallet_conv, interactive_del_wallet_menu, interactive_del_wallet_action
-from bot.handlers.menu import tampilkan_menu, menu_callback
+from bot.handlers.menu import tampilkan_menu, menu_callback, tutup_menu_laporan
 
 TOKEN = settings.TELEGRAM_TOKEN
 
@@ -63,6 +63,12 @@ def create_app():
 
     # Handler untuk gambar yang dikirim sebagai foto
     app.add_handler(MessageHandler(filters.PHOTO, proses_gambar))
+
+    # Handler untuk menu laporan interaktif (Reply Keyboard)
+    app.add_handler(MessageHandler(filters.Regex("^📅 Laporan Hari Ini$"), ringkasan_hari_ini))
+    app.add_handler(MessageHandler(filters.Regex("^📆 Laporan Minggu Ini$"), ringkasan_minggu))
+    app.add_handler(MessageHandler(filters.Regex("^📊 Laporan Bulan Ini$"), ringkasan_bulan))
+    app.add_handler(MessageHandler(filters.Regex("^🔙 Tutup Menu Laporan$"), tutup_menu_laporan))
 
     # Handler untuk teks biasa (NLP)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, proses_teks))

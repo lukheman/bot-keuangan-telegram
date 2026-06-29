@@ -1,4 +1,4 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
 
 async def tampilkan_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -45,14 +45,15 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
         
     if data == "menu_laporan":
-        await query.edit_message_text(
-            "📊 *Menu Laporan*\n\n"
-            "Pilih jenis laporan yang ingin dilihat:\n"
-            "• `/hari_ini` - Laporan pengeluaran hari ini\n"
-            "• `/minggu` - Laporan 7 hari terakhir\n"
-            "• `/bulan` - Laporan bulan ini",
+        reply_keyboard = [
+            ["📅 Laporan Hari Ini", "📆 Laporan Minggu Ini"],
+            ["📊 Laporan Bulan Ini"],
+            ["🔙 Tutup Menu Laporan"]
+        ]
+        await query.message.reply_text(
+            "📊 *Menu Laporan Aktif*\n\nSilakan gunakan menu di bawah layar untuk melihat laporan.",
             parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="menu_utama")]])
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True, one_time_keyboard=False)
         )
         return
         
@@ -65,3 +66,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="menu_utama")]])
         )
         return
+
+async def tutup_menu_laporan(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Menu laporan ditutup.", reply_markup=ReplyKeyboardRemove())
+    await tampilkan_menu(update, context)
