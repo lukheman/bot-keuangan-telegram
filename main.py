@@ -32,24 +32,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📸 Kirim gambar ke aku, dan aku akan mengekstrak teksnya!\n\n"
         "Perintah:\n"
         "/start - Mulai bot\n"
-        "/bahasa - Cek bahasa yang tersedia\n"
         "/masuk [jumlah] [deskripsi] - Catat pemasukan\n"
         "/keluar [jumlah] [deskripsi] - Catat pengeluaran\n"
         "/hari_ini - Ringkasan hari ini\n"
         "/minggu - Ringkasan 7 hari terakhir\n"
         "/bulan [bulan] [tahun] - Ringkasan bulan tertentu\n"
         "/menu - Tampilkan menu interaktif"
-    )
-
-async def cek_bahasa(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🌐 Bahasa yang didukung:\n"
-        "• `eng` - Inggris (default)\n"
-        "• `ind` - Indonesia\n"
-        "• `eng+ind` - Inggris + Indonesia\n\n"
-        "Contoh kirim gambar dengan caption: `ind`\n"
-        "untuk menggunakan bahasa Indonesia.",
-        parse_mode="Markdown"
     )
 
 from bot.handlers.account import register_user, account_info, delete_account, login_web
@@ -63,7 +51,6 @@ def create_app():
     app.add_handler(CommandHandler("hapus_akun", delete_account))
     app.add_handler(CommandHandler("login_web", login_web))
     
-    app.add_handler(CommandHandler("bahasa", cek_bahasa))
     app.add_handler(CommandHandler("masuk", catat_pemasukan))
     app.add_handler(CommandHandler("keluar", catat_pengeluaran))
     app.add_handler(CommandHandler("hari_ini", ringkasan_hari_ini))
