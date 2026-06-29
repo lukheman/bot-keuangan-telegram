@@ -71,7 +71,11 @@ def create_app():
     app.add_handler(CallbackQueryHandler(interactive_del_wallet_action, pattern="^wallet_del_action_"))
 
 
-    
+    # Handler untuk akun via inline keyboard
+    app.add_handler(CallbackQueryHandler(account_info, pattern="^akun_info$"))
+    app.add_handler(CallbackQueryHandler(delete_account, pattern="^akun_hapus$"))
+    app.add_handler(CallbackQueryHandler(login_web, pattern="^akun_web$"))
+
     # Handler untuk menu interaktif
     app.add_handler(CallbackQueryHandler(menu_callback, pattern="^menu_"))
 

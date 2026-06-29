@@ -40,48 +40,75 @@ async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def account_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = update.effective_user
     
+    if update.callback_query:
+        await update.callback_query.answer()
+        reply_func = update.callback_query.edit_message_text
+    else:
+        reply_func = update.message.reply_text
+    
     async with AsyncSessionLocal() as session:
         stmt = select(User).where(User.telegram_id == user_data.id)
         user = (await session.execute(stmt)).scalar_one_or_none()
         
+        keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="menu_akun")]]
+        reply_markup = InlineKeyboardMarkup(keyboard) if update.callback_query else None
+        
         if not user:
-            await update.message.reply_text("⚠️ Anda belum terdaftar. Silakan ketik /register terlebih dahulu.")
+            await reply_func("⚠️ Anda belum terdaftar. Silakan ketik /register terlebih dahulu.", reply_markup=reply_markup)
             return
             
-        await update.message.reply_text(
+        await reply_func(
             "👤 *Informasi Akun*\n\n"
             f"ID Telegram: `{user.telegram_id}`\n"
             f"Nama: {user.full_name}\n"
             f"Mata Uang: {user.currency}\n"
             f"Bergabung Sejak: {user.created_at.strftime('%d %b %Y')}",
-            parse_mode="Markdown"
+            parse_mode="Markdown",
+            reply_markup=reply_markup
         )
 
 async def delete_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = update.effective_user
     
+    if update.callback_query:
+        await update.callback_query.answer()
+        reply_func = update.callback_query.edit_message_text
+    else:
+        reply_func = update.message.reply_text
+    
     async with AsyncSessionLocal() as session:
         stmt = select(User).where(User.telegram_id == user_data.id)
         user = (await session.execute(stmt)).scalar_one_or_none()
         
+        keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="menu_akun")]]
+        reply_markup = InlineKeyboardMarkup(keyboard) if update.callback_query else None
+        
         if not user:
-            await update.message.reply_text("⚠️ Anda belum terdaftar.")
+            await reply_func("⚠️ Anda belum terdaftar.", reply_markup=reply_markup)
             return
             
         await session.delete(user)
         await session.commit()
         
-        await update.message.reply_text("🗑️ Akun Anda beserta seluruh data transaksi dan dompet telah berhasil dihapus permanen dari sistem kami.")
+        await reply_func("🗑️ Akun Anda beserta seluruh data transaksi dan dompet telah berhasil dihapus permanen dari sistem kami.", reply_markup=reply_markup)
 
 async def login_web(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = update.effective_user
+    
+    if update.callback_query:
+        await update.callback_query.answer()
+        reply_func = update.callback_query.edit_message_text
+    else:
+        reply_func = update.message.reply_text
     
     async with AsyncSessionLocal() as session:
         stmt = select(User).where(User.telegram_id == user_data.id)
         user = (await session.execute(stmt)).scalar_one_or_none()
         
         if not user:
-            await update.message.reply_text("⚠️ Anda belum terdaftar. Silakan ketik /register terlebih dahulu.")
+            keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="menu_akun")]]
+            reply_markup = InlineKeyboardMarkup(keyboard) if update.callback_query else None
+            await reply_func("⚠️ Anda belum terdaftar. Silakan ketik /register terlebih dahulu.", reply_markup=reply_markup)
             return
             
         # Generate JWT Token valid for 15 minutes
@@ -100,9 +127,11 @@ async def login_web(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton("🌐 Buka Dashboard Web", url=login_url)]
         ]
+        if update.callback_query:
+            keyboard.append([InlineKeyboardButton("🔙 Kembali", callback_data="menu_akun")])
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(
+        await reply_func(
             "🔐 *Link Login Web Auth*\n\n"
             "Klik tombol di bawah ini untuk masuk ke Dashboard Web secara otomatis. Link ini hanya berlaku selama 15 menit.",
             parse_mode="Markdown",
