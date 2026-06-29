@@ -13,7 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("⏳ Sedang memproses gambar...")
+    status_message = await update.message.reply_text("⏳ Sedang memproses gambar...")
 
     try:
         photo = update.message.photo[-1]
@@ -29,7 +29,7 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         os.remove(file_path)
 
         if not result.is_valid:
-            await update.message.reply_text(f"❌ Gagal menganalisis gambar: {result.reason}")
+            await status_message.edit_text(f"❌ Gagal menganalisis gambar: {result.reason}")
             return
 
         tx_type = TransactionType.INCOME if result.type == "INCOME" else TransactionType.EXPENSE
@@ -53,14 +53,14 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"💼 *Dompet:* {wallet_display}\n"
                 f"🎯 *Keyakinan AI:* {result.confidence * 100:.0f}%"
             )
-            await update.message.reply_text(msg, parse_mode="Markdown")
+            await status_message.edit_text(msg, parse_mode="Markdown")
         except Exception as e:
             logger.error(f"Gagal mencatat transaksi gambar: {str(e)}", exc_info=True)
-            await update.message.reply_text(f"⚠️ Terjadi error saat menyimpan: {str(e)}")
+            await status_message.edit_text(f"⚠️ Terjadi error saat menyimpan: {str(e)}")
 
     except Exception as e:
         logger.error(f"Error saat memproses gambar dari user {update.effective_user.id}: {str(e)}", exc_info=True)
-        await update.message.reply_text(f"⚠️ Terjadi error: {str(e)}")
+        await status_message.edit_text(f"⚠️ Terjadi error: {str(e)}")
         if 'file_path' in locals() and os.path.exists(file_path):
             os.remove(file_path)
 
@@ -129,13 +129,13 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if teks_lower in REPLY_KEYBOARD_MESSAGES:
         return
 
-    await update.message.reply_text("⏳ Membaca transaksimu...")
+    status_message = await update.message.reply_text("⏳ Membaca transaksimu...")
 
     try:
         result = await analyze_text_transaction(teks)
 
         if not result.is_valid:
-            await update.message.reply_text(f"❌ Pesan tidak dikenali sebagai transaksi.\n({result.reason})")
+            await status_message.edit_text(f"❌ Pesan tidak dikenali sebagai transaksi.\n({result.reason})")
             return
 
         tx_type = TransactionType.INCOME if result.type == "INCOME" else TransactionType.EXPENSE
@@ -159,11 +159,11 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"💼 *Dompet:* {wallet_display}\n"
                 f"🎯 *Keyakinan AI:* {result.confidence * 100:.0f}%"
             )
-            await update.message.reply_text(msg, parse_mode="Markdown")
+            await status_message.edit_text(msg, parse_mode="Markdown")
         except Exception as e:
             logger.error(f"Gagal mencatat transaksi teks: {str(e)}", exc_info=True)
-            await update.message.reply_text(f"⚠️ Terjadi error saat menyimpan: {str(e)}")
+            await status_message.edit_text(f"⚠️ Terjadi error saat menyimpan: {str(e)}")
 
     except Exception as e:
         logger.error(f"Error saat memproses teks dari user {update.effective_user.id}: {str(e)}", exc_info=True)
-        await update.message.reply_text(f"⚠️ Terjadi error: {str(e)}")
+        await status_message.edit_text(f"⚠️ Terjadi error: {str(e)}")
