@@ -20,7 +20,7 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption = update.message.caption
         file = await context.bot.get_file(photo.file_id)
         file_path = f"/tmp/temp_{update.effective_user.id}.jpg"
-        
+
         logger.info(f"User {update.effective_user.id} mengirim gambar untuk diproses AI Vision. Menyimpan di {file_path}")
         await file.download_to_drive(file_path)
 
@@ -91,10 +91,10 @@ async def konfirmasi_transaksi(update: Update, context: ContextTypes.DEFAULT_TYP
         if not tx_data:
             await query.edit_message_text("⚠️ Sesi kedaluwarsa atau data tidak ditemukan.")
             return
-            
+
         # Balik tipe
         tx_data["type"] = "EXPENSE" if tx_data["type"] == "INCOME" else "INCOME"
-        
+
         # Buat keyboard baru
         lawan_jenis = "Pengeluaran" if tx_data["type"] == "INCOME" else "Pemasukan"
         keyboard = [
@@ -133,10 +133,10 @@ async def konfirmasi_transaksi(update: Update, context: ContextTypes.DEFAULT_TYP
         try:
             logger.info(f"User {update.effective_user.id} mengkonfirmasi transaksi {tx_id} ({tx_type.value} {amount})")
             tx = await record_transaction(update.effective_user, decimal.Decimal(amount), description, tx_type, category_name=category, wallet_name=wallet_name)
-            
+
             # Catat ke Google Sheets
             await append_to_sheet(tx)
-            
+
             jenis = "Pemasukan" if tx_data["type"] == "INCOME" else "Pengeluaran"
             icon = "📈" if tx_data["type"] == "INCOME" else "📉"
             await query.edit_message_text(
@@ -173,10 +173,10 @@ async def _catat_transaksi(update: Update, context: ContextTypes.DEFAULT_TYPE, t
     try:
         logger.info(f"Mencatat manual ({command_name}): User {update.effective_user.id}, Rp{amount}, {description}")
         tx = await record_transaction(update.effective_user, amount, description, tx_type)
-        
+
         # Catat ke Google Sheets
         await append_to_sheet(tx)
-        
+
         jenis = "Pemasukan" if tx_type == TransactionType.INCOME else "Pengeluaran"
         await update.message.reply_text(
             f"{icon} *{jenis} Berhasil Dicatat!*\n\n"
@@ -202,16 +202,29 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     teks = update.message.text
     if not teks or teks.startswith("/"):
         return
-        
-    await update.message.reply_text("⏳ Membaca pesanmu...")
+
+    teks_lower = teks.strip().lower()
     
+    # Daftar pesan pasti dari Reply Keyboard (termasuk variasi tanpa emoji jika diketik manual)
+    REPLY_KEYBOARD_MESSAGES = {
+        "📅 laporan hari ini", "laporan hari ini",
+        "📆 laporan minggu ini", "laporan minggu ini",
+        "📊 laporan bulan ini", "laporan bulan ini",
+        "🔙 tutup menu laporan", "tutup menu laporan"
+    }
+
+    if teks_lower in REPLY_KEYBOARD_MESSAGES:
+        return
+
+    await update.message.reply_text("⏳ Membaca transaksimu...")
+
     try:
         result = await analyze_text_transaction(teks)
-        
+
         if not result.is_valid:
             await update.message.reply_text(f"❌ Pesan tidak dikenali sebagai transaksi.\n({result.reason})")
             return
-            
+
         # Simpan ke user_data (sama seperti gambar)
         tx_id = str(uuid.uuid4())
         context.user_data[tx_id] = {
@@ -244,7 +257,7 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
-        
+
     except Exception as e:
         logger.error(f"Error saat memproses teks dari user {update.effective_user.id}: {str(e)}", exc_info=True)
         await update.message.reply_text(f"⚠️ Terjadi error: {str(e)}")
