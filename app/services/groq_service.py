@@ -69,9 +69,12 @@ async def analyze_transaction(image_path: str, caption: str = None) -> Transacti
         data = json.loads(clean)
         logger.info(f"Berhasil mem-parsing JSON dari Groq: {data}")
 
+        amount_val = data.get("amount")
+        amount = float(amount_val) if amount_val is not None else 0.0
+
         return TransactionResult(
             type=data.get("type", "EXPENSE"),
-            amount=float(data.get("amount", 0)),
+            amount=amount,
             description=data.get("description", "Transaksi"),
             category=data.get("category", "Lainnya"),
             wallet_name=data.get("wallet_name") if data.get("wallet_name") else None,
@@ -119,9 +122,12 @@ async def analyze_text_transaction(text: str) -> TransactionResult:
         clean = re.sub(r"```(?:json)?|```", "", raw).strip()
         data = json.loads(clean)
 
+        amount_val = data.get("amount")
+        amount = float(amount_val) if amount_val is not None else 0.0
+
         return TransactionResult(
             type=data.get("type", "EXPENSE"),
-            amount=float(data.get("amount", 0)),
+            amount=amount,
             description=data.get("description", "Transaksi"),
             category=data.get("category", "Lainnya"),
             wallet_name=data.get("wallet_name") if data.get("wallet_name") else None,

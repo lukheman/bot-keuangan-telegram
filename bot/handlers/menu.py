@@ -12,13 +12,13 @@ async def tampilkan_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    
+
     pesan = (
         "🤖 *Menu Utama Bot Keuangan*\n\n"
         "Pilih salah satu menu di bawah ini atau ketik langsung perintah yang kamu inginkan. "
         "Kamu juga bisa mengirimkan *gambar struk* kapan saja untuk mencatat otomatis!"
     )
-    
+
     if update.callback_query:
         await update.callback_query.edit_message_text(pesan, reply_markup=reply_markup, parse_mode="Markdown")
     else:
@@ -27,13 +27,13 @@ async def tampilkan_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
+
     data = query.data
-    
+
     if data == "menu_utama":
         await tampilkan_menu(update, context)
         return
-        
+
     if data == "menu_dompet":
         from bot.handlers.wallet_interactive import get_wallet_menu_content
         text, reply_markup = await get_wallet_menu_content(update.effective_user.id)
@@ -43,7 +43,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup
         )
         return
-        
+
     if data == "menu_laporan":
         reply_keyboard = [
             ["📅 Laporan Hari Ini", "📆 Laporan Minggu Ini"],
@@ -56,7 +56,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True, one_time_keyboard=False)
         )
         return
-        
+
     if data == "menu_bantuan":
         await query.edit_message_text(
             "📈 *Bantuan Pencatatan*\n\n"
@@ -68,5 +68,4 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 async def tutup_menu_laporan(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Menu laporan ditutup.", reply_markup=ReplyKeyboardRemove())
     await tampilkan_menu(update, context)

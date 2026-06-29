@@ -204,7 +204,7 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     teks_lower = teks.strip().lower()
-    
+
     # Daftar pesan pasti dari Reply Keyboard (termasuk variasi tanpa emoji jika diketik manual)
     REPLY_KEYBOARD_MESSAGES = {
         "📅 laporan hari ini", "laporan hari ini",
@@ -212,7 +212,6 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📊 laporan bulan ini", "laporan bulan ini",
         "🔙 tutup menu laporan", "tutup menu laporan"
     }
-
     if teks_lower in REPLY_KEYBOARD_MESSAGES:
         return
 
