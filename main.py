@@ -19,7 +19,7 @@ from telegram.ext import (
 )
 
 from app.core.config import settings
-from bot.handlers.transaction import proses_gambar, proses_teks, catat_pemasukan, catat_pengeluaran, konfirmasi_transaksi
+from bot.handlers.transaction import proses_gambar, proses_teks, catat_pemasukan, catat_pengeluaran
 from bot.handlers.report import ringkasan_hari_ini, ringkasan_minggu, ringkasan_bulan
 from bot.handlers.wallet_interactive import interactive_wallet_conv, interactive_del_wallet_menu, interactive_del_wallet_action
 from bot.handlers.menu import tampilkan_menu, menu_callback, tutup_menu_laporan
@@ -70,8 +70,7 @@ def create_app():
     app.add_handler(CallbackQueryHandler(interactive_del_wallet_menu, pattern="^wallet_del_menu$"))
     app.add_handler(CallbackQueryHandler(interactive_del_wallet_action, pattern="^wallet_del_action_"))
 
-    # Handler untuk tombol konfirmasi
-    app.add_handler(CallbackQueryHandler(konfirmasi_transaksi, pattern="^(simpan|batal|ubah)_"))
+
     
     # Handler untuk menu interaktif
     app.add_handler(CallbackQueryHandler(menu_callback, pattern="^menu_"))

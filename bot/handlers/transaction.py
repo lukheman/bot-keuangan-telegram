@@ -32,44 +32,31 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ Gagal menganalisis gambar: {result.reason}")
             return
 
-        # Simpan ke user_data
-        tx_id = str(uuid.uuid4())
-        context.user_data[tx_id] = {
-            "type": result.type,
-            "amount": result.amount,
-            "description": result.description,
-            "category": result.category,
-            "wallet_name": result.wallet_name
-        }
+        tx_type = TransactionType.INCOME if result.type == "INCOME" else TransactionType.EXPENSE
+        try:
+            tx = await record_transaction(update.effective_user, decimal.Decimal(result.amount), result.description, tx_type, category_name=result.category, wallet_name=result.wallet_name)
+            await append_to_sheet(tx)
 
-        jenis = "Pemasukan" if result.type == "INCOME" else "Pengeluaran"
-        lawan_jenis = "Pengeluaran" if result.type == "INCOME" else "Pemasukan"
-        icon = "📈" if result.type == "INCOME" else "📉"
+            jenis = "Pemasukan" if result.type == "INCOME" else "Pengeluaran"
+            icon = "📈" if result.type == "INCOME" else "📉"
 
-        keyboard = [
-            [InlineKeyboardButton("✅ Simpan", callback_data=f"simpan_{tx_id}")],
-            [InlineKeyboardButton(f"🔄 Ubah ke {lawan_jenis}", callback_data=f"ubah_{tx_id}")],
-            [InlineKeyboardButton("❌ Batal", callback_data=f"batal_{tx_id}")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+            wallet_display = tx.wallet_name
+            if not wallet_display:
+                from app.services.transaction_service import get_primary_wallet_name
+                wallet_display = await get_primary_wallet_name(update.effective_user.id)
 
-        wallet_display = result.wallet_name
-        if not wallet_display:
-            from app.services.transaction_service import get_primary_wallet_name
-            wallet_display = await get_primary_wallet_name(update.effective_user.id)
-
-        msg = (
-            f"🤖 *Hasil Analisis Otomatis*\n\n"
-            f"{icon} *Jenis:* {jenis}\n"
-            f"💵 *Jumlah:* Rp{result.amount:,.0f}\n"
-            f"📝 *Deskripsi:* {result.description}\n"
-            f"🏷️ *Kategori:* {result.category}\n"
-            f"💼 *Dompet:* {wallet_display}\n"
-            f"🎯 *Keyakinan:* {result.confidence * 100:.0f}%\n\n"
-            f"Apakah data ini sudah benar?"
-        )
-
-        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
+            msg = (
+                f"{icon} *{jenis} Otomatis Dicatat!*\n\n"
+                f"💵 *Jumlah:* Rp{result.amount:,.0f}\n"
+                f"📝 *Deskripsi:* {result.description}\n"
+                f"🏷️ *Kategori:* {result.category}\n"
+                f"💼 *Dompet:* {wallet_display}\n"
+                f"🎯 *Keyakinan AI:* {result.confidence * 100:.0f}%"
+            )
+            await update.message.reply_text(msg, parse_mode="Markdown")
+        except Exception as e:
+            logger.error(f"Gagal mencatat transaksi gambar: {str(e)}", exc_info=True)
+            await update.message.reply_text(f"⚠️ Terjadi error saat menyimpan: {str(e)}")
 
     except Exception as e:
         logger.error(f"Error saat memproses gambar dari user {update.effective_user.id}: {str(e)}", exc_info=True)
@@ -77,90 +64,7 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'file_path' in locals() and os.path.exists(file_path):
             os.remove(file_path)
 
-async def konfirmasi_transaksi(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
 
-    data = query.data
-    action, tx_id = data.split("_", 1)
-
-    if action == "batal":
-        logger.info(f"User {update.effective_user.id} membatalkan transaksi {tx_id}")
-        await query.edit_message_text("❌ Pencatatan dibatalkan.")
-        if tx_id in context.user_data:
-            del context.user_data[tx_id]
-        return
-
-    if action == "ubah":
-        tx_data = context.user_data.get(tx_id)
-        if not tx_data:
-            await query.edit_message_text("⚠️ Sesi kedaluwarsa atau data tidak ditemukan.")
-            return
-
-        # Balik tipe
-        tx_data["type"] = "EXPENSE" if tx_data["type"] == "INCOME" else "INCOME"
-
-        # Buat keyboard baru
-        lawan_jenis = "Pengeluaran" if tx_data["type"] == "INCOME" else "Pemasukan"
-        keyboard = [
-            [InlineKeyboardButton("✅ Simpan", callback_data=f"simpan_{tx_id}")],
-            [InlineKeyboardButton(f"🔄 Ubah ke {lawan_jenis}", callback_data=f"ubah_{tx_id}")],
-            [InlineKeyboardButton("❌ Batal", callback_data=f"batal_{tx_id}")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        jenis = "Pemasukan" if tx_data["type"] == "INCOME" else "Pengeluaran"
-        icon = "📈" if tx_data["type"] == "INCOME" else "📉"
-        wallet_display = tx_data.get('wallet_name')
-        if not wallet_display:
-            from app.services.transaction_service import get_primary_wallet_name
-            wallet_display = await get_primary_wallet_name(update.effective_user.id)
-
-        msg = (
-            f"🤖 *Hasil Analisis Otomatis (Diedit)*\n\n"
-            f"{icon} *Jenis:* {jenis}\n"
-            f"💵 *Jumlah:* Rp{tx_data['amount']:,.0f}\n"
-            f"📝 *Deskripsi:* {tx_data['description']}\n"
-            f"🏷️ *Kategori:* {tx_data['category']}\n"
-            f"💼 *Dompet:* {wallet_display}\n\n"
-            f"Apakah data ini sudah benar?"
-        )
-        await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
-        return
-
-    if action == "simpan":
-        tx_data = context.user_data.get(tx_id)
-        if not tx_data:
-            await query.edit_message_text("⚠️ Sesi kedaluwarsa atau data tidak ditemukan.")
-            return
-
-        tx_type = TransactionType.INCOME if tx_data["type"] == "INCOME" else TransactionType.EXPENSE
-        amount = tx_data["amount"]
-        description = tx_data["description"]
-        category = tx_data["category"]
-        wallet_name = tx_data.get("wallet_name") or None
-
-        try:
-            logger.info(f"User {update.effective_user.id} mengkonfirmasi transaksi {tx_id} ({tx_type.value} {amount})")
-            tx = await record_transaction(update.effective_user, decimal.Decimal(amount), description, tx_type, category_name=category, wallet_name=wallet_name)
-
-            # Catat ke Google Sheets
-            await append_to_sheet(tx)
-
-            jenis = "Pemasukan" if tx_data["type"] == "INCOME" else "Pengeluaran"
-            icon = "📈" if tx_data["type"] == "INCOME" else "📉"
-            await query.edit_message_text(
-                f"{icon} *{jenis} Berhasil Dicatat!*\n\n"
-                f"💵 *Jumlah:* Rp{amount:,.0f}\n"
-                f"📝 *Deskripsi:* {description}\n"
-                f"🏷️ *Kategori:* {category}\n"
-                f"💼 *Dompet:* {tx.wallet_name}",
-                parse_mode="Markdown"
-            )
-            del context.user_data[tx_id]
-        except Exception as e:
-            logger.error(f"Gagal mencatat transaksi dari konfirmasi: {str(e)}", exc_info=True)
-            await query.edit_message_text(f"⚠️ Terjadi error saat menyimpan: {str(e)}")
 
 async def _catat_transaksi(update: Update, context: ContextTypes.DEFAULT_TYPE, tx_type: TransactionType, command_name: str, verb: str, icon: str):
     if not context.args or len(context.args) < 2:
@@ -234,43 +138,31 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ Pesan tidak dikenali sebagai transaksi.\n({result.reason})")
             return
 
-        # Simpan ke user_data (sama seperti gambar)
-        tx_id = str(uuid.uuid4())
-        context.user_data[tx_id] = {
-            "type": result.type,
-            "amount": result.amount,
-            "description": result.description,
-            "category": result.category,
-            "wallet_name": result.wallet_name
-        }
+        tx_type = TransactionType.INCOME if result.type == "INCOME" else TransactionType.EXPENSE
+        try:
+            tx = await record_transaction(update.effective_user, decimal.Decimal(result.amount), result.description, tx_type, category_name=result.category, wallet_name=result.wallet_name)
+            await append_to_sheet(tx)
 
-        jenis = "Pemasukan" if result.type == "INCOME" else "Pengeluaran"
-        lawan_jenis = "Pengeluaran" if result.type == "INCOME" else "Pemasukan"
-        icon = "📈" if result.type == "INCOME" else "📉"
+            jenis = "Pemasukan" if result.type == "INCOME" else "Pengeluaran"
+            icon = "📈" if result.type == "INCOME" else "📉"
 
-        keyboard = [
-            [InlineKeyboardButton("✅ Simpan", callback_data=f"simpan_{tx_id}")],
-            [InlineKeyboardButton(f"🔄 Ubah ke {lawan_jenis}", callback_data=f"ubah_{tx_id}")],
-            [InlineKeyboardButton("❌ Batal", callback_data=f"batal_{tx_id}")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+            wallet_display = tx.wallet_name
+            if not wallet_display:
+                from app.services.transaction_service import get_primary_wallet_name
+                wallet_display = await get_primary_wallet_name(update.effective_user.id)
 
-        wallet_display = result.wallet_name
-        if not wallet_display:
-            from app.services.transaction_service import get_primary_wallet_name
-            wallet_display = await get_primary_wallet_name(update.effective_user.id)
-
-        msg = (
-            f"🤖 *Hasil Analisis AI (Teks)*\n\n"
-            f"{icon} *Jenis:* {jenis}\n"
-            f"💵 *Jumlah:* Rp{result.amount:,.0f}\n"
-            f"📝 *Deskripsi:* {result.description}\n"
-            f"🏷️ *Kategori:* {result.category}\n"
-            f"💼 *Dompet:* {wallet_display}\n\n"
-            f"Apakah data ini sudah benar?"
-        )
-
-        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
+            msg = (
+                f"{icon} *{jenis} Otomatis Dicatat!*\n\n"
+                f"💵 *Jumlah:* Rp{result.amount:,.0f}\n"
+                f"📝 *Deskripsi:* {result.description}\n"
+                f"🏷️ *Kategori:* {result.category}\n"
+                f"💼 *Dompet:* {wallet_display}\n"
+                f"🎯 *Keyakinan AI:* {result.confidence * 100:.0f}%"
+            )
+            await update.message.reply_text(msg, parse_mode="Markdown")
+        except Exception as e:
+            logger.error(f"Gagal mencatat transaksi teks: {str(e)}", exc_info=True)
+            await update.message.reply_text(f"⚠️ Terjadi error saat menyimpan: {str(e)}")
 
     except Exception as e:
         logger.error(f"Error saat memproses teks dari user {update.effective_user.id}: {str(e)}", exc_info=True)
