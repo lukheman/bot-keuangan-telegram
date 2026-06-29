@@ -62,6 +62,19 @@ async def bot_info():
         "telegram_webhook_ready": True
     }
 
+@app.get("/api/set_webhook")
+async def set_webhook(request: Request):
+    bot_app = await get_ptb_app()
+    webhook_url = f"https://{request.url.hostname}/api/webhook"
+    
+    # Check config first
+    from app.core.config import settings
+    if settings.WEBHOOK_URL:
+        webhook_url = settings.WEBHOOK_URL
+        
+    await bot_app.bot.set_webhook(url=webhook_url)
+    return {"status": "success", "message": f"Webhook berhasil dipasang ke {webhook_url}"}
+
 @app.get("/manifest.json")
 async def get_manifest():
     manifest_data = {

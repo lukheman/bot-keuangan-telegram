@@ -1,6 +1,8 @@
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
 
+import os
+
 class Settings(BaseSettings):
     TELEGRAM_TOKEN: str
     GROQ_API_KEY: str | None = None
@@ -38,7 +40,6 @@ class Settings(BaseSettings):
         return v
 
     class Config:
-        import os
         env_file = os.getenv("ENV_FILE", ".env")
         env_file_encoding = 'utf-8'
 
