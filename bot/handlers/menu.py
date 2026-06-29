@@ -46,15 +46,15 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if data == "menu_laporan":
-        reply_keyboard = [
-            ["📅 Laporan Hari Ini", "📆 Laporan Minggu Ini"],
-            ["📊 Laporan Bulan Ini"],
-            ["🔙 Tutup Menu Laporan"]
+        keyboard = [
+            [InlineKeyboardButton("📅 Hari Ini", callback_data="laporan_hari"), InlineKeyboardButton("📆 Minggu Ini", callback_data="laporan_minggu")],
+            [InlineKeyboardButton("📊 Bulan Ini", callback_data="laporan_bulan")],
+            [InlineKeyboardButton("🔙 Kembali", callback_data="menu_utama")]
         ]
-        await query.message.reply_text(
-            "📊 *Menu Laporan Aktif*\n\nSilakan gunakan menu di bawah layar untuk melihat laporan.",
+        await query.edit_message_text(
+            "📊 *Pilih Jenis Laporan*\n\nSilakan pilih rentang waktu laporan yang ingin Anda lihat:",
             parse_mode="Markdown",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True, one_time_keyboard=False)
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
 
@@ -82,7 +82,4 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-async def tutup_menu_laporan(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = await update.message.reply_text("🔄", reply_markup=ReplyKeyboardRemove())
-    await msg.delete()
-    await tampilkan_menu(update, context)
+
