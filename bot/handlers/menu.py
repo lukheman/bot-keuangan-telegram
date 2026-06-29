@@ -16,7 +16,7 @@ async def tampilkan_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     pesan = (
         "🤖 *Menu Utama Bot Keuangan*\n\n"
-        "Pilih salah satu menu di bawah ini atau ketik langsung perintah yang kamu inginkan. "
+        "Pilih salah satu menu di bawah ini. "
         "Kamu juga bisa mengirimkan *gambar struk* kapan saja untuk mencatat otomatis!"
     )
 
