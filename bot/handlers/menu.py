@@ -8,6 +8,7 @@ async def tampilkan_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("📊 Laporan", callback_data="menu_laporan")
         ],
         [
+            InlineKeyboardButton("👤 Akun", callback_data="menu_akun"),
             InlineKeyboardButton("📈 Bantuan Pencatatan", callback_data="menu_bantuan")
         ]
     ]
@@ -54,6 +55,20 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📊 *Menu Laporan Aktif*\n\nSilakan gunakan menu di bawah layar untuk melihat laporan.",
             parse_mode="Markdown",
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True, one_time_keyboard=False)
+        )
+        return
+
+    if data == "menu_akun":
+        keyboard = [
+            [InlineKeyboardButton("ℹ️ Info Akun", callback_data="akun_info")],
+            [InlineKeyboardButton("🌐 Login Dashboard Web", callback_data="akun_web")],
+            [InlineKeyboardButton("🗑️ Hapus Akun", callback_data="akun_hapus")],
+            [InlineKeyboardButton("🔙 Kembali", callback_data="menu_utama")]
+        ]
+        await query.edit_message_text(
+            "👤 *Pengaturan Akun*\n\nPilih aksi yang ingin dilakukan:",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
 
