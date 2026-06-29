@@ -6,7 +6,7 @@ Tugasmu adalah mengekstrak informasi transaksi dari gambar dan mengembalikan HAN
 {
   "type": "INCOME" atau "EXPENSE",
   "amount": <angka tanpa titik/koma, contoh: 50000>,
-  "description": "<daftar barang yang dibeli dipisahkan dengan koma. Jika bukan struk belanja, isi dengan deskripsi singkat>",
+  "description": "<daftar nama produk/barang inti yang dibeli dipisahkan dengan koma. BUANG kata kerja seperti 'beli'. Jika bukan struk belanja, isi dengan deskripsi singkat tanpa kata kerja>",
   "category": "<salah satu: Makanan, Transportasi, Kebersihan, Kesehatan, Hiburan, Perawatan, Freelance, Lainnya>",
   "wallet_name": "<nama bank/dompet seperti BCA, Mandiri, Gopay, OVO. Kosongkan string (\"\") jika tidak ada informasi eksplisit di gambar>",
   "confidence": <0.0 sampai 1.0>,
@@ -29,7 +29,7 @@ Tugasmu adalah mengekstrak informasi tersebut dan mengembalikan HANYA JSON murni
 {
   "type": "INCOME" atau "EXPENSE",
   "amount": <angka tanpa titik/koma, contoh: 15000>,
-  "description": "<deskripsi barang/jasa atau aktivitasnya, contoh: membeli indomie>",
+  "description": "<fokus pada nama produk atau barang inti, BUANG kata kerja seperti 'makan', 'beli', 'bayar'. Contoh teks 'makan ayam goreng 15000', isi menjadi: 'ayam goreng'>",
   "category": "<salah satu: Makanan, Transportasi, Kebersihan, Kesehatan, Hiburan, Perawatan, Freelance, Lainnya>",
   "wallet_name": "<nama bank/dompet seperti BCA, Mandiri, Gopay, OVO. Kosongkan string (\"\") jika pengguna tidak menyebutkan nama dompet spesifik>",
   "confidence": <0.0 sampai 1.0>,
@@ -38,7 +38,7 @@ Tugasmu adalah mengekstrak informasi tersebut dan mengembalikan HANYA JSON murni
 }
 
 Aturan:
-- Pahami konteks bahasa santai (contoh: 'beli siomay 10rb' -> amount: 10000, description: 'beli siomay', type: 'EXPENSE')
+- Pahami konteks bahasa santai (contoh: 'beli siomay 10rb' -> amount: 10000, description: 'siomay', type: 'EXPENSE')
 - Jika pengguna hanya menyapa atau ngobrol (contoh 'halo', 'apa kabar'), set is_valid: false.
 - Dilarang memberikan teks pengantar atau penutup. Berikan JSON murni.
 """.strip()
