@@ -16,11 +16,11 @@ async def get_primary_wallet_name(telegram_id: int) -> str:
             return "Utama"
             
         stmt = select(Wallet).where(Wallet.user_id == user.id, Wallet.is_primary == True)
-        wallet = (await session.execute(stmt)).scalar_one_or_none()
+        wallet = (await session.execute(stmt)).scalars().first()
         
         if not wallet:
             stmt = select(Wallet).where(Wallet.user_id == user.id).order_by(Wallet.created_at)
-            wallet = (await session.execute(stmt)).scalar_one_or_none()
+            wallet = (await session.execute(stmt)).scalars().first()
             
         return wallet.name if wallet else "Utama"
 
@@ -45,7 +45,7 @@ async def get_or_create_category(session: AsyncSession, user_id, type_: Transact
         Category.name == name,
         Category.type == type_
     )
-    category = (await session.execute(stmt)).scalar_one_or_none()
+    category = (await session.execute(stmt)).scalars().first()
     
     if not category:
         category = Category(
@@ -64,7 +64,7 @@ async def get_or_create_wallet(session: AsyncSession, user_id, wallet_name: str 
             Wallet.user_id == user_id,
             Wallet.name.ilike(wallet_name)
         )
-        wallet = (await session.execute(stmt)).scalar_one_or_none()
+        wallet = (await session.execute(stmt)).scalars().first()
         
         if not wallet:
             wallet = Wallet(
@@ -82,12 +82,12 @@ async def get_or_create_wallet(session: AsyncSession, user_id, wallet_name: str 
             Wallet.user_id == user_id,
             Wallet.is_primary == True
         )
-        wallet = (await session.execute(stmt)).scalar_one_or_none()
+        wallet = (await session.execute(stmt)).scalars().first()
         
         if not wallet:
             # Fallback to the first wallet if no primary is set
             stmt = select(Wallet).where(Wallet.user_id == user_id).order_by(Wallet.created_at)
-            wallet = (await session.execute(stmt)).scalar_one_or_none()
+            wallet = (await session.execute(stmt)).scalars().first()
             
         if not wallet:
             # If completely empty, create "Utama" and make it primary
