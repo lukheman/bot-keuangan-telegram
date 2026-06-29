@@ -68,4 +68,6 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 async def tutup_menu_laporan(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = await update.message.reply_text("🔄", reply_markup=ReplyKeyboardRemove())
+    await msg.delete()
     await tampilkan_menu(update, context)
