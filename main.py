@@ -22,6 +22,7 @@ from app.core.config import settings
 from bot.handlers.transaction import proses_gambar, proses_teks, catat_pemasukan, catat_pengeluaran, konfirmasi_transaksi
 from bot.handlers.report import ringkasan_hari_ini, ringkasan_minggu, ringkasan_bulan
 from bot.handlers.wallet import list_wallets, tambah_dompet, hapus_dompet
+from bot.handlers.wallet_interactive import interactive_wallet_conv, interactive_del_wallet_menu, interactive_del_wallet_action
 from bot.handlers.menu import tampilkan_menu, menu_callback
 
 TOKEN = settings.TELEGRAM_TOKEN
@@ -78,11 +79,17 @@ def create_app():
     app.add_handler(CommandHandler("hapus_dompet", hapus_dompet))
     app.add_handler(CommandHandler("menu", tampilkan_menu))
 
+    app.add_handler(interactive_wallet_conv)
+
     # Handler untuk gambar yang dikirim sebagai foto
     app.add_handler(MessageHandler(filters.PHOTO, proses_gambar))
 
     # Handler untuk teks biasa (NLP)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, proses_teks))
+
+    # Handler untuk Interactive Wallet Manager
+    app.add_handler(CallbackQueryHandler(interactive_del_wallet_menu, pattern="^wallet_del_menu$"))
+    app.add_handler(CallbackQueryHandler(interactive_del_wallet_action, pattern="^wallet_del_action_"))
 
     # Handler untuk tombol konfirmasi
     app.add_handler(CallbackQueryHandler(konfirmasi_transaksi, pattern="^(simpan|batal|ubah)_"))

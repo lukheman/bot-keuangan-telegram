@@ -35,16 +35,12 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
         
     if data == "menu_dompet":
-        from bot.handlers.wallet import list_wallets
-        # Kita panggil list_wallets, tapi kita perlu memalsukan panggilan ini karena list_wallets menggunakan update.message.reply_text
-        # Sebaiknya kita ubah list_wallets agar kompatibel dengan callback query nanti, atau berikan pesan instruksi saja.
+        from bot.handlers.wallet_interactive import get_wallet_menu_content
+        text, reply_markup = await get_wallet_menu_content(update.effective_user.id)
         await query.edit_message_text(
-            "💼 *Menu Dompet*\n\n"
-            "Untuk melihat isi dompet, ketik: `/dompet`\n"
-            "Untuk menambah dompet: `/tambah_dompet [Nama] [Saldo]`\n"
-            "Untuk menghapus: `/hapus_dompet [Nama]`",
+            text,
             parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="menu_utama")]])
+            reply_markup=reply_markup
         )
         return
         
