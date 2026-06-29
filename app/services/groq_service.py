@@ -112,7 +112,7 @@ async def analyze_text_transaction(text: str) -> TransactionResult:
                 {"role": "system", "content": TEXT_EXTRACTION_PROMPT},
                 {"role": "user", "content": text}
             ],
-            temperature=0.5,
+            temperature=0.3,
             max_tokens=512,
         )
 
