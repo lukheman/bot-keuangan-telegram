@@ -38,6 +38,8 @@ class Settings(BaseSettings):
         return v
 
     class Config:
-        env_file = ".env"
+        import os
+        env_file = os.getenv("ENV_FILE", ".env")
+        env_file_encoding = 'utf-8'
 
 settings = Settings()
