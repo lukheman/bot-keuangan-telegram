@@ -46,7 +46,7 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 wallet_display = await get_primary_wallet_name(update.effective_user.id)
 
             msg = (
-                f"{icon} *{jenis} Otomatis Dicatat!*\n\n"
+                f"{icon} *{jenis} Berhasil Dicatat!*\n\n"
                 f"💵 *Jumlah:* Rp{result.amount:,.0f}\n"
                 f"📝 *Deskripsi:* {result.description}\n"
                 f"🏷️ *Kategori:* {result.category}\n"
