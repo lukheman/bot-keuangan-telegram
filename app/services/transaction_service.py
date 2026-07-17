@@ -58,7 +58,7 @@ async def get_or_create_category(session: AsyncSession, user_id, type_: Transact
         await session.flush()
     return category
 
-async def get_or_create_wallet(session: AsyncSession, user_id, wallet_name: str = None) -> Wallet:
+async def get_wallet_or_default(session: AsyncSession, user_id, wallet_name: str = None) -> Wallet:
     if wallet_name:
         stmt = select(Wallet).where(
             Wallet.user_id == user_id,
@@ -67,14 +67,8 @@ async def get_or_create_wallet(session: AsyncSession, user_id, wallet_name: str 
         wallet = (await session.execute(stmt)).scalars().first()
         
         if not wallet:
-            wallet = Wallet(
-                user_id=user_id,
-                name=wallet_name,
-                balance=decimal.Decimal(0.0),
-                is_primary=False
-            )
-            session.add(wallet)
-            await session.flush()
+            raise ValueError(f"Dompet '{wallet_name}' tidak ditemukan. Silakan buat dompet terlebih dahulu melalui menu dompet.")
+            
         return wallet
     else:
         # Default to primary wallet
@@ -111,7 +105,7 @@ async def record_transaction(telegram_user, amount: decimal.Decimal, description
             telegram_user.full_name
         )
         category = await get_or_create_category(session, user.id, tx_type, category_name)
-        wallet = await get_or_create_wallet(session, user.id, wallet_name)
+        wallet = await get_wallet_or_default(session, user.id, wallet_name)
         
         # Update balance dompet
         if tx_type == TransactionType.INCOME:

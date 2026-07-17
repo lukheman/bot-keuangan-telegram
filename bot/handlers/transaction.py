@@ -54,6 +54,8 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🎯 *Keyakinan AI:* {result.confidence * 100:.0f}%"
             )
             await status_message.edit_text(msg, parse_mode="Markdown")
+        except ValueError as ve:
+            await status_message.edit_text(f"⚠️ {str(ve)}")
         except Exception as e:
             logger.error(f"Gagal mencatat transaksi gambar: {str(e)}", exc_info=True)
             await status_message.edit_text(f"⚠️ Terjadi error saat menyimpan: {str(e)}")
@@ -100,6 +102,8 @@ async def _catat_transaksi(update: Update, context: ContextTypes.DEFAULT_TYPE, t
             f"📅 *Tanggal:* {date.today().strftime('%d %b %Y')}",
             parse_mode="Markdown"
         )
+    except ValueError as ve:
+        await update.message.reply_text(f"⚠️ {str(ve)}")
     except Exception as e:
         logger.error(f"Gagal mencatat transaksi manual: {str(e)}", exc_info=True)
         await update.message.reply_text(f"⚠️ Terjadi error saat menyimpan ke database: {str(e)}")
@@ -190,6 +194,8 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🎯 *Keyakinan AI:* {result.confidence * 100:.0f}%"
             )
             await status_message.edit_text(msg, parse_mode="Markdown")
+        except ValueError as ve:
+            await status_message.edit_text(f"⚠️ {str(ve)}")
         except Exception as e:
             logger.error(f"Gagal mencatat transaksi teks: {str(e)}", exc_info=True)
             await status_message.edit_text(f"⚠️ Terjadi error saat menyimpan: {str(e)}")
