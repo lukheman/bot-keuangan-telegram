@@ -135,3 +135,28 @@ async def record_transaction(telegram_user, amount: decimal.Decimal, description
         new_tx.wallet_name = wallet.name
         logger.debug(f"Transaksi tersimpan di database: id={new_tx.id}, wallet={wallet.name}")
         return new_tx
+
+async def adjust_wallet_balance(telegram_user, target_balance: decimal.Decimal, wallet_name: str = None) -> Transaction | None:
+    async with AsyncSessionLocal() as session:
+        user = await get_or_create_user(session, telegram_user.id, telegram_user.username, telegram_user.full_name)
+        wallet = await get_or_create_wallet(session, user.id, wallet_name)
+        
+        diff = target_balance - wallet.balance
+        if diff == 0:
+            return None
+            
+        tx_type = TransactionType.INCOME if diff > 0 else TransactionType.EXPENSE
+        amount = abs(diff)
+        
+        # We only need the wallet name to pass to record_transaction
+        resolved_wallet_name = wallet.name
+
+    # Use existing function to record and apply the difference
+    return await record_transaction(
+        telegram_user=telegram_user,
+        amount=amount,
+        description="Penyesuaian Saldo Otomatis",
+        tx_type=tx_type,
+        category_name="Penyesuaian Saldo",
+        wallet_name=resolved_wallet_name
+    )

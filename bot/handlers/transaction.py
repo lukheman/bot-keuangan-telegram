@@ -138,6 +138,33 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await status_message.edit_text(f"❌ Pesan tidak dikenali sebagai transaksi.\n({result.reason})")
             return
 
+        if result.type == "CORRECTION":
+            from app.services.transaction_service import adjust_wallet_balance
+            try:
+                tx = await adjust_wallet_balance(update.effective_user, decimal.Decimal(result.amount), wallet_name=result.wallet_name)
+                
+                if tx is None:
+                    await status_message.edit_text("✅ Saldo Anda sudah sesuai, tidak ada penyesuaian yang diperlukan.")
+                    return
+                
+                await append_to_sheet(tx)
+                
+                jenis = "Pemasukan (Koreksi)" if tx.type == TransactionType.INCOME else "Pengeluaran (Koreksi)"
+                
+                msg = (
+                    f"⚖️ *Penyesuaian Saldo Otomatis!*\n\n"
+                    f"Saldo disesuaikan menjadi Rp{result.amount:,.0f}.\n"
+                    f"Dicatat sebagai *{jenis}* sebesar Rp{tx.amount:,.0f} agar sesuai.\n\n"
+                    f"💼 *Dompet:* {tx.wallet_name}\n"
+                    f"🎯 *Keyakinan AI:* {result.confidence * 100:.0f}%"
+                )
+                await status_message.edit_text(msg, parse_mode="Markdown")
+                return
+            except Exception as e:
+                logger.error(f"Gagal melakukan koreksi saldo: {str(e)}", exc_info=True)
+                await status_message.edit_text(f"⚠️ Terjadi error saat koreksi saldo: {str(e)}")
+                return
+
         tx_type = TransactionType.INCOME if result.type == "INCOME" else TransactionType.EXPENSE
         try:
             tx = await record_transaction(update.effective_user, decimal.Decimal(result.amount), result.description, tx_type, category_name=result.category, wallet_name=result.wallet_name)
