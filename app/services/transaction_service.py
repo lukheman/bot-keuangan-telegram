@@ -139,7 +139,20 @@ async def record_transaction(telegram_user, amount: decimal.Decimal, description
 async def adjust_wallet_balance(telegram_user, target_balance: decimal.Decimal, wallet_name: str = None) -> Transaction | None:
     async with AsyncSessionLocal() as session:
         user = await get_or_create_user(session, telegram_user.id, telegram_user.username, telegram_user.full_name)
-        wallet = await get_or_create_wallet(session, user.id, wallet_name)
+        
+        if wallet_name:
+            stmt = select(Wallet).where(Wallet.user_id == user.id, Wallet.name.ilike(wallet_name))
+            wallet = (await session.execute(stmt)).scalars().first()
+            if not wallet:
+                raise ValueError(f"Dompet '{wallet_name}' tidak ditemukan. Silakan buat dompet terlebih dahulu atau cek ejaannya.")
+        else:
+            stmt = select(Wallet).where(Wallet.user_id == user.id, Wallet.is_primary == True)
+            wallet = (await session.execute(stmt)).scalars().first()
+            if not wallet:
+                stmt = select(Wallet).where(Wallet.user_id == user.id).order_by(Wallet.created_at)
+                wallet = (await session.execute(stmt)).scalars().first()
+            if not wallet:
+                raise ValueError("Anda belum memiliki dompet sama sekali.")
         
         diff = target_balance - wallet.balance
         if diff == 0:

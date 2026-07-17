@@ -160,6 +160,9 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 await status_message.edit_text(msg, parse_mode="Markdown")
                 return
+            except ValueError as ve:
+                await status_message.edit_text(f"⚠️ {str(ve)}")
+                return
             except Exception as e:
                 logger.error(f"Gagal melakukan koreksi saldo: {str(e)}", exc_info=True)
                 await status_message.edit_text(f"⚠️ Terjadi error saat koreksi saldo: {str(e)}")
