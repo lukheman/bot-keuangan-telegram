@@ -35,6 +35,7 @@ async def get_wallet_menu_content(telegram_id):
                 
     reply_markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("➕ Tambah Dompet", callback_data="wallet_add_interactive")],
+        [InlineKeyboardButton("✏️ Ubah Nama Dompet", callback_data="wallet_rename_menu")],
         [InlineKeyboardButton("🗑️ Hapus Dompet", callback_data="wallet_del_menu")],
         [InlineKeyboardButton("🔙 Kembali", callback_data="menu_utama")]
     ])
@@ -154,3 +155,84 @@ async def interactive_del_wallet_action(update: Update, context: ContextTypes.DE
         else:
             text, reply_markup = await get_wallet_menu_content(update.effective_user.id)
             await query.edit_message_text("⚠️ Dompet tidak ditemukan atau sudah dihapus.\n\n" + text, parse_mode="Markdown", reply_markup=reply_markup)
+
+RENAME_WALLET_NEW_NAME = 10
+
+async def interactive_rename_wallet_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    async with AsyncSessionLocal() as session:
+        user_id = await _get_internal_user_id(session, update.effective_user.id)
+        if not user_id:
+            await query.edit_message_text("Kamu belum memiliki akun.")
+            return
+            
+        stmt = select(Wallet).where(Wallet.user_id == user_id)
+        wallets = (await session.execute(stmt)).scalars().all()
+        
+        if not wallets:
+            await query.edit_message_text("Kamu belum memiliki dompet.")
+            return
+            
+        keyboard = []
+        for w in wallets:
+            keyboard.append([InlineKeyboardButton(f"✏️ Ubah Nama {w.name}", callback_data=f"wallet_rename_action_{w.id.hex}")])
+        keyboard.append([InlineKeyboardButton("🔙 Kembali", callback_data="menu_dompet")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text("Pilih dompet yang ingin diubah namanya:", reply_markup=reply_markup)
+
+async def interactive_rename_wallet_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    wallet_id_hex = query.data.replace("wallet_rename_action_", "")
+    
+    context.user_data['rename_wallet_id'] = wallet_id_hex
+    
+    msg = "✏️ *Ubah Nama Dompet*\n\nSilakan ketik *Nama Baru* untuk dompet ini (tanpa spasi):"
+    await query.edit_message_text(msg, parse_mode="Markdown")
+    return RENAME_WALLET_NEW_NAME
+
+async def interactive_rename_wallet_new_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    new_name = update.message.text.strip()
+    if " " in new_name:
+        await update.message.reply_text("⚠️ Nama dompet sebaiknya tidak mengandung spasi. Silakan ketik ulang namanya:")
+        return RENAME_WALLET_NEW_NAME
+        
+    wallet_id_hex = context.user_data.get('rename_wallet_id')
+    
+    async with AsyncSessionLocal() as session:
+        import uuid
+        try:
+            wallet_id = uuid.UUID(wallet_id_hex)
+        except ValueError:
+            await update.message.reply_text("⚠️ ID Dompet tidak valid.")
+            return ConversationHandler.END
+            
+        stmt = select(Wallet).where(Wallet.id == wallet_id)
+        wallet = (await session.execute(stmt)).scalar_one_or_none()
+        
+        if not wallet:
+            await update.message.reply_text("⚠️ Dompet tidak ditemukan.")
+            return ConversationHandler.END
+            
+        old_name = wallet.name
+        wallet.name = new_name
+        await session.commit()
+        
+    text, reply_markup = await get_wallet_menu_content(update.effective_user.id)
+    await update.message.reply_text(f"✅ Nama dompet *{old_name}* berhasil diubah menjadi *{new_name}*!\n\n" + text, parse_mode="Markdown", reply_markup=reply_markup)
+    return ConversationHandler.END
+
+async def interactive_rename_wallet_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("❌ Pengubahan nama dompet dibatalkan.")
+    return ConversationHandler.END
+
+interactive_rename_wallet_conv = ConversationHandler(
+    entry_points=[CallbackQueryHandler(interactive_rename_wallet_start, pattern="^wallet_rename_action_")],
+    states={
+        RENAME_WALLET_NEW_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, interactive_rename_wallet_new_name)]
+    },
+    fallbacks=[CommandHandler("batal", interactive_rename_wallet_cancel)],
+    per_message=False
+)

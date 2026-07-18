@@ -21,7 +21,13 @@ from telegram.ext import (
 from app.core.config import settings
 from bot.handlers.transaction import proses_gambar, proses_teks, catat_pemasukan, catat_pengeluaran
 from bot.handlers.report import ringkasan_hari_ini, ringkasan_minggu, ringkasan_bulan
-from bot.handlers.wallet_interactive import interactive_wallet_conv, interactive_del_wallet_menu, interactive_del_wallet_action
+from bot.handlers.wallet_interactive import (
+    interactive_wallet_conv, 
+    interactive_del_wallet_menu, 
+    interactive_del_wallet_action,
+    interactive_rename_wallet_menu,
+    interactive_rename_wallet_conv
+)
 from bot.handlers.menu import tampilkan_menu, menu_callback
 
 TOKEN = settings.TELEGRAM_TOKEN
@@ -61,18 +67,20 @@ def create_app():
     app.add_handler(CallbackQueryHandler(ringkasan_hari_ini, pattern="^laporan_hari$"))
     app.add_handler(CallbackQueryHandler(ringkasan_minggu, pattern="^laporan_minggu$"))
     app.add_handler(CallbackQueryHandler(ringkasan_bulan, pattern="^laporan_bulan$"))
-
-    # Handler untuk teks biasa (NLP)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, proses_teks))
-
+    
+    app.add_handler(interactive_rename_wallet_conv)
+    
     # Handler untuk Interactive Wallet Manager
     app.add_handler(CallbackQueryHandler(interactive_del_wallet_menu, pattern="^wallet_del_menu$"))
     app.add_handler(CallbackQueryHandler(interactive_del_wallet_action, pattern="^wallet_del_action_"))
+    app.add_handler(CallbackQueryHandler(interactive_rename_wallet_menu, pattern="^wallet_rename_menu$"))
 
     # Handler untuk memilih dompet dari pending transaction
     from bot.handlers.transaction import select_wallet_callback
     app.add_handler(CallbackQueryHandler(select_wallet_callback, pattern="^sel_w_"))
 
+    # Handler untuk teks biasa (NLP)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, proses_teks))
 
     # Handler untuk akun via inline keyboard
     app.add_handler(CallbackQueryHandler(account_info, pattern="^akun_info$"))
