@@ -26,7 +26,8 @@ from bot.handlers.wallet_interactive import (
     interactive_del_wallet_menu, 
     interactive_del_wallet_action,
     interactive_rename_wallet_menu,
-    interactive_rename_wallet_conv
+    interactive_rename_wallet_conv,
+    cek_saldo
 )
 from bot.handlers.menu import tampilkan_menu, menu_callback
 
@@ -38,6 +39,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📸 Kirim gambar ke aku, dan aku akan mengekstrak teksnya!\n\n"
         "Perintah:\n"
         "/start - Mulai bot\n"
+        "/saldo - Cek daftar dompet & saldo\n"
         "/masuk [jumlah] [deskripsi] - Catat pemasukan\n"
         "/keluar [jumlah] [deskripsi] - Catat pengeluaran\n"
         "/menu - Tampilkan menu interaktif"
@@ -57,6 +59,8 @@ def create_app():
     app.add_handler(CommandHandler("masuk", catat_pemasukan))
     app.add_handler(CommandHandler("keluar", catat_pengeluaran))
     app.add_handler(CommandHandler("menu", tampilkan_menu))
+    app.add_handler(CommandHandler("saldo", cek_saldo))
+    app.add_handler(CommandHandler("dompet", cek_saldo))
 
     app.add_handler(interactive_wallet_conv)
 

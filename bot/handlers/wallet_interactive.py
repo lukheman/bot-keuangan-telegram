@@ -41,6 +41,10 @@ async def get_wallet_menu_content(telegram_id):
     ])
     return text, reply_markup
 
+async def cek_saldo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text, reply_markup = await get_wallet_menu_content(update.effective_user.id)
+    await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+
 async def interactive_add_wallet_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     msg = "💳 *Tambah Dompet Baru*\n\nSilakan balas (reply) pesan ini dengan *Nama Dompet* (contoh: BCA, Mandiri, Cash):"
