@@ -41,6 +41,8 @@ async def select_wallet_callback(update: Update, context: ContextTypes.DEFAULT_T
             
         pending = pending_transactions.pop(tx_id)
         
+        await query.edit_message_text("⏳ Menyimpan transaksi...")
+        
         async with AsyncSessionLocal() as session:
             import uuid
             try:
