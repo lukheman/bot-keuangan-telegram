@@ -69,6 +69,10 @@ def create_app():
     app.add_handler(CallbackQueryHandler(interactive_del_wallet_menu, pattern="^wallet_del_menu$"))
     app.add_handler(CallbackQueryHandler(interactive_del_wallet_action, pattern="^wallet_del_action_"))
 
+    # Handler untuk memilih dompet dari pending transaction
+    from bot.handlers.transaction import select_wallet_callback
+    app.add_handler(CallbackQueryHandler(select_wallet_callback, pattern="^sel_w_"))
+
 
     # Handler untuk akun via inline keyboard
     app.add_handler(CallbackQueryHandler(account_info, pattern="^akun_info$"))
