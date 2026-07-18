@@ -9,8 +9,75 @@ from app.services.transaction_service import record_transaction
 from app.services.sheets_service import append_to_sheet
 from app.models import TransactionType
 import logging
+from sqlalchemy import select
+from app.core.database import AsyncSessionLocal
+from app.models import Wallet
+from app.services.transaction_service import get_or_create_user
 
 logger = logging.getLogger(__name__)
+
+pending_transactions = {}
+
+async def select_wallet_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    
+    if data.startswith("sel_w_cancel_"):
+        tx_id = data.replace("sel_w_cancel_", "")
+        if tx_id in pending_transactions:
+            del pending_transactions[tx_id]
+        await query.edit_message_text("❌ Pencatatan transaksi dibatalkan.")
+        return
+        
+    parts = data.split("_")
+    if len(parts) >= 4:
+        tx_id = parts[2]
+        wallet_id_str = parts[3]
+        
+        if tx_id not in pending_transactions:
+            await query.edit_message_text("⚠️ Sesi transaksi sudah kadaluarsa atau tidak valid.")
+            return
+            
+        pending = pending_transactions.pop(tx_id)
+        
+        async with AsyncSessionLocal() as session:
+            import uuid
+            try:
+                wallet_uuid = uuid.UUID(wallet_id_str)
+            except ValueError:
+                await query.edit_message_text("⚠️ ID Dompet tidak valid.")
+                return
+                
+            stmt = select(Wallet).where(Wallet.id == wallet_uuid)
+            wallet = (await session.execute(stmt)).scalars().first()
+            if not wallet:
+                await query.edit_message_text("⚠️ Dompet tidak ditemukan.")
+                return
+            wallet_name = wallet.name
+            
+        try:
+            tx = await record_transaction(
+                pending["user"], pending["amount"], pending["description"], pending["type"], 
+                category_name=pending["category"], wallet_name=wallet_name
+            )
+            await append_to_sheet(tx)
+            
+            jenis = "Pemasukan" if tx.type == TransactionType.INCOME else "Pengeluaran"
+            icon = "📈" if tx.type == TransactionType.INCOME else "📉"
+            
+            msg = (
+                f"{icon} *{jenis} Otomatis Dicatat!*\n\n"
+                f"💵 *Jumlah:* Rp{tx.amount:,.0f}\n"
+                f"📝 *Deskripsi:* {tx.description}\n"
+                f"🏷️ *Kategori:* {tx.category_name}\n"
+                f"💼 *Dompet:* {tx.wallet_name}\n"
+                f"🎯 *Keyakinan AI:* {pending['confidence'] * 100:.0f}%"
+            )
+            await query.edit_message_text(msg, parse_mode="Markdown")
+        except Exception as e:
+            logger.error(f"Gagal mencatat transaksi tertunda: {str(e)}", exc_info=True)
+            await query.edit_message_text(f"⚠️ Terjadi error saat menyimpan: {str(e)}")
 
 async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_message = await update.message.reply_text("⏳ Sedang memproses gambar...")
@@ -33,6 +100,33 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         tx_type = TransactionType.INCOME if result.type == "INCOME" else TransactionType.EXPENSE
+        
+        if not result.wallet_name:
+            async with AsyncSessionLocal() as session:
+                user = await get_or_create_user(session, update.effective_user.id, update.effective_user.username, update.effective_user.full_name)
+                stmt = select(Wallet).where(Wallet.user_id == user.id)
+                wallets = (await session.execute(stmt)).scalars().all()
+                
+            if len(wallets) > 1:
+                tx_id = uuid.uuid4().hex
+                pending_transactions[tx_id] = {
+                    "user": update.effective_user,
+                    "amount": decimal.Decimal(result.amount),
+                    "description": result.description,
+                    "type": tx_type,
+                    "category": result.category,
+                    "confidence": result.confidence
+                }
+                
+                keyboard = []
+                for w in wallets:
+                    keyboard.append([InlineKeyboardButton(w.name, callback_data=f"sel_w_{tx_id}_{w.id}")])
+                keyboard.append([InlineKeyboardButton("❌ Batal", callback_data=f"sel_w_cancel_{tx_id}")])
+                
+                msg = f"💳 *Pilih Dompet*\n\nTransaksi *Rp{result.amount:,.0f}* ({result.description}) belum menentukan dompet. Silakan pilih dompet:"
+                await status_message.edit_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                return
+
         try:
             tx = await record_transaction(update.effective_user, decimal.Decimal(result.amount), result.description, tx_type, category_name=result.category, wallet_name=result.wallet_name)
             await append_to_sheet(tx)
@@ -88,6 +182,32 @@ async def _catat_transaksi(update: Update, context: ContextTypes.DEFAULT_TYPE, t
 
     try:
         logger.info(f"Mencatat manual ({command_name}): User {update.effective_user.id}, Rp{amount}, {description}")
+        
+        async with AsyncSessionLocal() as session:
+            user = await get_or_create_user(session, update.effective_user.id, update.effective_user.username, update.effective_user.full_name)
+            stmt = select(Wallet).where(Wallet.user_id == user.id)
+            wallets = (await session.execute(stmt)).scalars().all()
+            
+        if len(wallets) > 1:
+            tx_id = uuid.uuid4().hex[:8]
+            pending_transactions[tx_id] = {
+                "user": update.effective_user,
+                "amount": amount,
+                "description": description,
+                "type": tx_type,
+                "category": None,
+                "confidence": 1.0 # Manual input is 100% confident
+            }
+            
+            keyboard = []
+            for w in wallets:
+                keyboard.append([InlineKeyboardButton(w.name, callback_data=f"sel_w_{tx_id}_{w.id.hex}")])
+            keyboard.append([InlineKeyboardButton("❌ Batal", callback_data=f"sel_w_cancel_{tx_id}")])
+            
+            msg = f"💳 *Pilih Dompet*\n\nTransaksi *Rp{amount:,.0f}* ({description}) belum menentukan dompet. Silakan pilih dompet:"
+            await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+            return
+            
         tx = await record_transaction(update.effective_user, amount, description, tx_type)
 
         # Catat ke Google Sheets
@@ -173,6 +293,33 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
 
         tx_type = TransactionType.INCOME if result.type == "INCOME" else TransactionType.EXPENSE
+        
+        if not result.wallet_name:
+            async with AsyncSessionLocal() as session:
+                user = await get_or_create_user(session, update.effective_user.id, update.effective_user.username, update.effective_user.full_name)
+                stmt = select(Wallet).where(Wallet.user_id == user.id)
+                wallets = (await session.execute(stmt)).scalars().all()
+                
+            if len(wallets) > 1:
+                tx_id = uuid.uuid4().hex[:8]
+                pending_transactions[tx_id] = {
+                    "user": update.effective_user,
+                    "amount": decimal.Decimal(result.amount),
+                    "description": result.description,
+                    "type": tx_type,
+                    "category": result.category,
+                    "confidence": result.confidence
+                }
+                
+                keyboard = []
+                for w in wallets:
+                    keyboard.append([InlineKeyboardButton(w.name, callback_data=f"sel_w_{tx_id}_{w.id.hex}")])
+                keyboard.append([InlineKeyboardButton("❌ Batal", callback_data=f"sel_w_cancel_{tx_id}")])
+                
+                msg = f"💳 *Pilih Dompet*\n\nTransaksi *Rp{result.amount:,.0f}* ({result.description}) belum menentukan dompet. Silakan pilih dompet:"
+                await status_message.edit_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                return
+
         try:
             tx = await record_transaction(update.effective_user, decimal.Decimal(result.amount), result.description, tx_type, category_name=result.category, wallet_name=result.wallet_name)
             await append_to_sheet(tx)
