@@ -173,8 +173,8 @@ from app.core.config import settings
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from app.core.database import AsyncSessionLocal
-from app.models import User, Transaction, TransactionType
-from sqlalchemy import select, desc
+from app.models import Category, User, Transaction, TransactionType
+from sqlalchemy import desc, func, select
 import datetime
 
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), '..', 'templates'))
@@ -227,6 +227,25 @@ async def dashboard(request: Request):
             
             total_income = sum(tx.amount for tx in month_tx if tx.type == TransactionType.INCOME)
             total_expense = sum(tx.amount for tx in month_tx if tx.type == TransactionType.EXPENSE)
+
+            category_stmt = (
+                select(Transaction.type, Category.name, func.sum(Transaction.amount))
+                .join(Category, Transaction.category_id == Category.id)
+                .where(Transaction.user_id == user.id, Transaction.date >= current_month)
+                .group_by(Transaction.type, Category.name)
+                .order_by(func.sum(Transaction.amount).desc())
+            )
+            category_rows = (await session.execute(category_stmt)).all()
+            income_categories = [
+                {"name": name, "total": float(total)}
+                for transaction_type, name, total in category_rows
+                if transaction_type == TransactionType.INCOME
+            ]
+            expense_categories = [
+                {"name": name, "total": float(total)}
+                for transaction_type, name, total in category_rows
+                if transaction_type == TransactionType.EXPENSE
+            ]
             
             # Total Saldo (dari tabel wallets bisa juga, tapi untuk simple kita ambil dari user.wallets)
             # Karena eager loading belum disetup, kita ambil manual
@@ -244,7 +263,9 @@ async def dashboard(request: Request):
                     "total_income": float(total_income),
                     "total_expense": float(total_expense),
                     "total_balance": float(total_balance),
-                    "wallets": wallets
+                    "wallets": wallets,
+                    "income_categories": income_categories,
+                    "expense_categories": expense_categories,
                 }
             )
             
@@ -374,4 +395,3 @@ async def delete_wallet(wallet_id: str, request: Request):
             return {"status": "success"}
     except Exception as e:
         return Response(status_code=400)
-
