@@ -1,10 +1,10 @@
 import calendar
 from datetime import date, timedelta
 from typing import Tuple, List, Optional
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import AsyncSessionLocal
-from app.models import User, Transaction, TransactionType
+from app.models import Category, User, Transaction, TransactionType
 
 async def _get_user_transactions(session: AsyncSession, telegram_id: int, start_date: date, end_date: date):
     stmt_user = select(User).where(User.telegram_id == telegram_id)
@@ -43,4 +43,26 @@ async def get_monthly_summary(telegram_id: int, year: int, month: int):
     start_date = date(year, month, 1)
     _, last_day = calendar.monthrange(year, month)
     end_date = date(year, month, last_day)
-    return await get_summary_by_date_range(telegram_id, start_date, end_date)
+
+    summary = await get_summary_by_date_range(telegram_id, start_date, end_date)
+    if summary[0] is None:
+        return (*summary, {})
+
+    async with AsyncSessionLocal() as session:
+        category_stmt = (
+            select(Category.name, func.sum(Transaction.amount).label("total"))
+            .join(Transaction, Transaction.category_id == Category.id)
+            .join(User, Transaction.user_id == User.id)
+            .where(
+                User.telegram_id == telegram_id,
+                Transaction.type == TransactionType.EXPENSE,
+                Transaction.date >= start_date,
+                Transaction.date <= end_date,
+            )
+            .group_by(Category.name)
+            .order_by(func.sum(Transaction.amount).desc())
+        )
+        category_rows = (await session.execute(category_stmt)).all()
+
+    expense_by_category = {name: float(total) for name, total in category_rows}
+    return (*summary, expense_by_category)
