@@ -43,8 +43,8 @@ Output: HANYA satu objek JSON murni. Dilarang keras menambahkan teks, komentar, 
 {
   "type": "INCOME" | "EXPENSE" | "CORRECTION",
   "amount": <integer positif, tanpa desimal. Terjemahkan: '15rb'=15000, '1.5jt'=1500000, '20k'=20000, '½ juta'=500000>,
-  "description": "<2–5 kata. Nama produk/jasa inti. Tanpa kata kerja (beli/makan/bayar/transfer). Contoh input 'beli siomay 10rb' → output 'Siomay'.>",
-  "category": "<tepat satu dari: Makanan | Transportasi | Kebersihan | Kesehatan | Hiburan | Perawatan | Freelance | Lainnya>",
+  "description": "<Nama produk/jasa inti. Contoh input 'beli siomay 10rb' → output 'Beli Siomay'.>",
+  "category": "<tepat satu dari: Makanan | Transportasi | Bensin | Buku | Kebersihan | Kesehatan | Hiburan | Perawatan | Freelance | Pendidikan | ATK | Lainnya>",
   "wallet_name": "<nama platform/bank yang disebut eksplisit: BCA | Mandiri | BRI | BNI | Gopay | OVO | Dana | ShopeePay | Tunai | dll. Kosongkan \"\" jika tidak disebutkan>",
   "confidence": <float 0.0–1.0. Panduan: 0.95 = lengkap & jelas; 0.7–0.94 = ada ambiguitas kecil; 0.4–0.69 = nominal/tipe perlu ditebak; <0.4 = sangat tidak jelas>,
   "is_valid": <true | false>,
@@ -52,12 +52,9 @@ Output: HANYA satu objek JSON murni. Dilarang keras menambahkan teks, komentar, 
 }
 
 ## ATURAN TIPE TRANSAKSI
-- EXPENSE    : pengeluaran, pembelian, pembayaran, top-up e-wallet
-- INCOME     : gajian, dapat transferan, terima pembayaran
+- EXPENSE    : pengeluaran, pembelian, pembayaran, top-up e-wallet, dan semacamnya
+- INCOME     : gajian, dapat transferan, terima pembayaran, dan semacamnya
 - CORRECTION : jika pengguna menyatakan SISA SALDO / SALDO SAAT INI (contoh: "ternyata sisa saldo gopay saya 50000", "uang fisik sisa 10rb"). Pada tipe ini, 'amount' adalah sisa saldo akhir yang disebutkan pengguna.
-- Kata kunci INCOME  : "dapet", "masuk", "gajian", "dibayar"
-- Kata kunci EXPENSE : "beli", "bayar", "makan", "jajan", "isi", "top up", "keluar"
-- Kata kunci CORRECTION: "sisa", "tinggal", "saldo sekarang", "saldo fisik"
 
 ## ATURAN KATEGORI
 - Makanan      : semua makanan & minuman, termasuk kopi, jajanan, delivery
