@@ -9,6 +9,8 @@
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2933/2933116.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.3.2/css/dataTables.dataTables.min.css">
+    <script src="https://cdn.datatables.net/2.3.2/js/dataTables.min.js"></script>
     <style>
         :root {
             --bg-color: #f5f7fb;
@@ -222,8 +224,29 @@
 
         .tab-btn { background: transparent; border: 0; color: var(--text-muted); padding: 8px 12px; }
         .tab-btn.active { background: #eef2ff; color: var(--primary); }
-        .transaction-table { display: none; }
-        .transaction-table.active { display: table; }
+        .table-scroll { display: none; overflow-x: auto; }
+        .table-scroll.active { display: block; }
+
+        .dataTables_wrapper { color: var(--text-muted); font-size: 13px; }
+        .dataTables_wrapper .dt-layout-row { margin: 12px 0; }
+        .dataTables_wrapper .dt-search input,
+        .dataTables_wrapper .dt-length select {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            color: var(--text-main);
+            padding: 7px 9px;
+        }
+        .dataTables_wrapper .dt-paging button {
+            border: 1px solid var(--border) !important;
+            border-radius: 6px !important;
+            color: var(--text-main) !important;
+            margin-left: 4px !important;
+        }
+        .dataTables_wrapper .dt-paging button.current {
+            background: var(--primary) !important;
+            color: #ffffff !important;
+        }
 
         .charts-grid {
             display: grid;
@@ -314,7 +337,8 @@
                     <button class="btn tab-btn" data-tab="month" role="tab">Bulan Ini</button>
                 </div>
                 {% for period, period_transactions in [('today', transactions_today), ('week', transactions_week), ('month', transactions_month)] %}
-                <table class="transaction-table {% if period == 'today' %}active{% endif %}" data-panel="{{ period }}">
+                <div class="table-scroll {% if period == 'today' %}active{% endif %}">
+                <table id="transactions-{{ period }}" class="transaction-table" data-panel="{{ period }}" style="width:100%">
                     <thead>
                         <tr>
                             <th>Tanggal</th>
@@ -326,7 +350,7 @@
                     <tbody>
                         {% for tx in period_transactions %}
                         <tr>
-                            <td style="color: var(--text-muted); font-size: 13px;">{{ tx.date.strftime('%d %b') }}</td>
+                            <td data-order="{{ tx.date.isoformat() }}" style="color: var(--text-muted); font-size: 13px;">{{ tx.date.strftime('%d %b') }}</td>
                             <td>{{ tx.description }}</td>
                             <td><span class="badge {% if tx.type.value == 'INCOME' %}badge-income{% else %}badge-expense{% endif %}">{{ tx.category.name }}</span></td>
                             <td class="{% if tx.type.value == 'INCOME' %}amount income{% else %}amount expense{% endif %}" style="font-size: 15px;">
@@ -340,6 +364,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                </div>
                 {% endfor %}
             </div>
 
@@ -484,12 +509,31 @@
         createCategoryChart('incomeChart', {{ income_categories | tojson }}, ['#10b981', '#059669', '#34d399', '#047857']);
         createCategoryChart('expenseChart', {{ expense_categories | tojson }}, ['#ef4444', '#dc2626', '#f87171', '#b91c1c'], 'bar');
 
+        const transactionTables = {};
+        ['today', 'week', 'month'].forEach(period => {
+            transactionTables[period] = new DataTable(`#transactions-${period}`, {
+                pageLength: 10,
+                lengthMenu: [10, 25, 50, 100],
+                order: [[0, 'desc']],
+                language: {
+                    search: 'Cari:',
+                    lengthMenu: 'Tampilkan _MENU_ transaksi',
+                    info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ transaksi',
+                    infoEmpty: 'Belum ada transaksi',
+                    zeroRecords: 'Transaksi tidak ditemukan',
+                    paginate: { previous: 'Sebelumnya', next: 'Berikutnya' }
+                }
+            });
+        });
+
         document.querySelectorAll('.tab-btn').forEach(button => {
             button.addEventListener('click', () => {
                 document.querySelectorAll('.tab-btn').forEach(tab => tab.classList.remove('active'));
-                document.querySelectorAll('.transaction-table').forEach(table => table.classList.remove('active'));
+                document.querySelectorAll('.transaction-table').forEach(table => table.closest('.table-scroll').classList.remove('active'));
                 button.classList.add('active');
-                document.querySelector(`[data-panel="${button.dataset.tab}"]`).classList.add('active');
+                const panel = document.querySelector(`[data-panel="${button.dataset.tab}"]`);
+                panel.closest('.table-scroll').classList.add('active');
+                transactionTables[button.dataset.tab].columns.adjust();
             });
         });
         
