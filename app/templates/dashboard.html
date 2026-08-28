@@ -188,6 +188,43 @@
         .badge-income { background: #dcfce7; color: #047857; }
         .badge-expense { background: #fee2e2; color: #b91c1c; }
 
+        button, .button {
+            font: inherit;
+        }
+
+        .btn {
+            border: 1px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 9px 14px;
+            transition: background-color 0.2s, border-color 0.2s, transform 0.2s;
+        }
+
+        .btn:hover { transform: translateY(-1px); }
+        .btn-primary { background: #3157d5; color: #ffffff; }
+        .btn-primary:hover { background: #2748b7; }
+        .btn-secondary { background: #eef2f7; border-color: var(--border); color: var(--text-main); }
+        .btn-secondary:hover { background: #e2e8f0; }
+        .btn-danger { background: #fff1f2; border-color: #fecdd3; color: #be123c; }
+        .btn-danger:hover { background: #ffe4e6; }
+        .btn-success { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+        .btn-success:hover { background: #d1fae5; }
+
+        .transaction-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        .tab-btn { background: transparent; border: 0; color: var(--text-muted); padding: 8px 12px; }
+        .tab-btn.active { background: #eef2ff; color: var(--primary); }
+        .transaction-table { display: none; }
+        .transaction-table.active { display: table; }
+
         .charts-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -237,7 +274,7 @@
         <div class="panel" style="margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 style="margin: 0;">Manajemen Dompet</h2>
-                <button onclick="openAddWalletModal()" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: 0.3s; font-size: 13px; font-weight: 500;">
+                <button class="btn btn-success" onclick="openAddWalletModal()">
                     + Tambah Dompet
                 </button>
             </div>
@@ -249,14 +286,14 @@
                         <div style="color: var(--text-muted); font-size: 14px; margin-top: 5px;">Rp {{ "{:,.0f}".format(w.balance).replace(',', '.') }}</div>
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <button onclick="openEditWalletModal('{{ w.id }}', '{{ w.name }}', {{ w.balance }})" style="background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); padding: 8px 12px; border-radius: 8px; cursor: pointer; transition: 0.3s; font-size: 13px;">
+                        <button class="btn btn-secondary" onclick="openEditWalletModal('{{ w.id }}', '{{ w.name }}', {{ w.balance }})">
                             Edit
                         </button>
-                        <button onclick="deleteWallet('{{ w.id }}')" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); padding: 8px 12px; border-radius: 8px; cursor: pointer; transition: 0.3s; font-size: 13px;">
+                        <button class="btn btn-danger" onclick="deleteWallet('{{ w.id }}')">
                             Hapus
                         </button>
                         {% if not w.is_primary %}
-                        <button onclick="setPrimaryWallet('{{ w.id }}')" style="background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: 0.3s; font-size: 13px; font-weight: 500;">
+                        <button class="btn btn-primary" onclick="setPrimaryWallet('{{ w.id }}')">
                             Utamakan
                         </button>
                         {% endif %}
@@ -270,8 +307,14 @@
 
         <div class="main-grid">
             <div class="panel">
-                <h2>Riwayat Transaksi Terbaru</h2>
-                <table>
+                <h2>Riwayat Transaksi</h2>
+                <div class="transaction-tabs" role="tablist">
+                    <button class="btn tab-btn active" data-tab="today" role="tab">Hari Ini</button>
+                    <button class="btn tab-btn" data-tab="week" role="tab">Minggu Ini</button>
+                    <button class="btn tab-btn" data-tab="month" role="tab">Bulan Ini</button>
+                </div>
+                {% for period, period_transactions in [('today', transactions_today), ('week', transactions_week), ('month', transactions_month)] %}
+                <table class="transaction-table {% if period == 'today' %}active{% endif %}" data-panel="{{ period }}">
                     <thead>
                         <tr>
                             <th>Tanggal</th>
@@ -281,7 +324,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for tx in transactions %}
+                        {% for tx in period_transactions %}
                         <tr>
                             <td style="color: var(--text-muted); font-size: 13px;">{{ tx.date.strftime('%d %b') }}</td>
                             <td>{{ tx.description }}</td>
@@ -297,6 +340,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                {% endfor %}
             </div>
 
         </div>
@@ -411,27 +455,43 @@
             }
         };
 
-        function createCategoryChart(id, categories, colors) {
+        function createCategoryChart(id, categories, colors, type = 'doughnut') {
             const canvas = document.getElementById(id);
             const hasData = categories.length > 0;
             return new Chart(canvas, {
-                type: 'doughnut',
+                type,
                 data: {
                     labels: hasData ? categories.map(category => category.name) : ['Belum ada data'],
                     datasets: [{
                         data: hasData ? categories.map(category => category.total) : [1],
                         backgroundColor: hasData ? categories.map((category, index) => colors[index % colors.length]) : ['#dfe5ee'],
-                        borderColor: '#ffffff',
-                        borderWidth: 2,
+                        borderColor: type === 'bar' ? colors[0] : '#ffffff',
+                        borderWidth: type === 'bar' ? 1 : 2,
                         hoverOffset: 4
                     }]
                 },
-                options: chartOptions
+                options: type === 'bar' ? {
+                    ...chartOptions,
+                    indexAxis: 'y',
+                    scales: {
+                        x: { beginAtZero: true, ticks: { color: '#64748b' }, grid: { color: '#e2e8f0' } },
+                        y: { ticks: { color: '#172033' }, grid: { display: false } }
+                    }
+                } : chartOptions
             });
         }
 
         createCategoryChart('incomeChart', {{ income_categories | tojson }}, ['#10b981', '#059669', '#34d399', '#047857']);
-        createCategoryChart('expenseChart', {{ expense_categories | tojson }}, ['#ef4444', '#dc2626', '#f87171', '#b91c1c']);
+        createCategoryChart('expenseChart', {{ expense_categories | tojson }}, ['#ef4444', '#dc2626', '#f87171', '#b91c1c'], 'bar');
+
+        document.querySelectorAll('.tab-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(tab => tab.classList.remove('active'));
+                document.querySelectorAll('.transaction-table').forEach(table => table.classList.remove('active'));
+                button.classList.add('active');
+                document.querySelector(`[data-panel="${button.dataset.tab}"]`).classList.add('active');
+            });
+        });
         
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js');

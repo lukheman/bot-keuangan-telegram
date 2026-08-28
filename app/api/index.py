@@ -176,6 +176,7 @@ from app.core.database import AsyncSessionLocal
 from app.models import Category, User, Transaction, TransactionType
 from sqlalchemy import desc, func, select
 import datetime
+from datetime import timedelta
 
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), '..', 'templates'))
 
@@ -216,12 +217,24 @@ async def dashboard(request: Request):
                 return RedirectResponse(url="/login")
                 
             from sqlalchemy.orm import joinedload
-            # Ambil transaksi terbaru (limit 10)
-            tx_stmt = select(Transaction).options(joinedload(Transaction.category)).where(Transaction.user_id == user.id).order_by(desc(Transaction.date), desc(Transaction.id)).limit(10)
-            transactions = (await session.execute(tx_stmt)).scalars().all()
+            today = datetime.date.today()
+
+            async def get_transactions_since(start_date):
+                tx_stmt = (
+                    select(Transaction)
+                    .options(joinedload(Transaction.category))
+                    .where(Transaction.user_id == user.id, Transaction.date >= start_date, Transaction.date <= today)
+                    .order_by(desc(Transaction.date), desc(Transaction.id))
+                    .limit(10)
+                )
+                return (await session.execute(tx_stmt)).scalars().all()
+
+            transactions_today = await get_transactions_since(today)
+            transactions_week = await get_transactions_since(today - timedelta(days=today.weekday()))
+            transactions_month = await get_transactions_since(today.replace(day=1))
             
             # Hitung statistik bulan ini
-            current_month = datetime.date.today().replace(day=1)
+            current_month = today.replace(day=1)
             stat_stmt = select(Transaction).where(Transaction.user_id == user.id, Transaction.date >= current_month)
             month_tx = (await session.execute(stat_stmt)).scalars().all()
             
@@ -259,7 +272,9 @@ async def dashboard(request: Request):
                 name="dashboard.html",
                 context={
                     "user": user,
-                    "transactions": transactions,
+                    "transactions_today": transactions_today,
+                    "transactions_week": transactions_week,
+                    "transactions_month": transactions_month,
                     "total_income": float(total_income),
                     "total_expense": float(total_expense),
                     "total_balance": float(total_balance),
