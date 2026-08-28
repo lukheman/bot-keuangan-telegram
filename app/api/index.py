@@ -225,7 +225,6 @@ async def dashboard(request: Request):
                     .options(joinedload(Transaction.category))
                     .where(Transaction.user_id == user.id, Transaction.date >= start_date, Transaction.date <= today)
                     .order_by(desc(Transaction.date), desc(Transaction.id))
-                    .limit(10)
                 )
                 return (await session.execute(tx_stmt)).scalars().all()
 
