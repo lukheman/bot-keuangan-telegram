@@ -509,33 +509,38 @@
         createCategoryChart('incomeChart', {{ income_categories | tojson }}, ['#10b981', '#059669', '#34d399', '#047857']);
         createCategoryChart('expenseChart', {{ expense_categories | tojson }}, ['#ef4444', '#dc2626', '#f87171', '#b91c1c'], 'bar');
 
-        const transactionTables = {};
-        ['today', 'week', 'month'].forEach(period => {
-            transactionTables[period] = new DataTable(`#transactions-${period}`, {
-                pageLength: 10,
-                lengthMenu: [10, 25, 50, 100],
-                order: [[0, 'desc']],
-                language: {
-                    search: 'Cari:',
-                    lengthMenu: 'Tampilkan _MENU_ transaksi',
-                    info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ transaksi',
-                    infoEmpty: 'Belum ada transaksi',
-                    zeroRecords: 'Transaksi tidak ditemukan',
-                    paginate: { previous: 'Sebelumnya', next: 'Berikutnya' }
-                }
-            });
-        });
-
         document.querySelectorAll('.tab-btn').forEach(button => {
-            button.addEventListener('click', () => {
+            button.addEventListener('click', event => {
+                event.preventDefault();
                 document.querySelectorAll('.tab-btn').forEach(tab => tab.classList.remove('active'));
                 document.querySelectorAll('.transaction-table').forEach(table => table.closest('.table-scroll').classList.remove('active'));
                 button.classList.add('active');
                 const panel = document.querySelector(`[data-panel="${button.dataset.tab}"]`);
                 panel.closest('.table-scroll').classList.add('active');
-                transactionTables[button.dataset.tab].columns.adjust();
+                if (transactionTables[button.dataset.tab]) {
+                    transactionTables[button.dataset.tab].columns.adjust();
+                }
             });
         });
+
+        const transactionTables = {};
+        if (typeof DataTable !== 'undefined') {
+            ['today', 'week', 'month'].forEach(period => {
+                transactionTables[period] = new DataTable(`#transactions-${period}`, {
+                    pageLength: 10,
+                    lengthMenu: [10, 25, 50, 100],
+                    order: [[0, 'desc']],
+                    language: {
+                        search: 'Cari:',
+                        lengthMenu: 'Tampilkan _MENU_ transaksi',
+                        info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ transaksi',
+                        infoEmpty: 'Belum ada transaksi',
+                        zeroRecords: 'Transaksi tidak ditemukan',
+                        paginate: { previous: 'Sebelumnya', next: 'Berikutnya' }
+                    }
+                });
+            });
+        }
         
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js');
