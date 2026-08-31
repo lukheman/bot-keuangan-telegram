@@ -32,12 +32,14 @@ def _format_transactions(transactions, total_income, total_expense, title, inclu
                 msg += f"  - *{label}*\n"
                 for tx in type_transactions:
                     description = f" - {tx.description}" if tx.description else ""
-                    msg += f"    - Rp{tx.amount:,.0f}{description}\n"
+                    transaction_time = tx.created_at.strftime('%H:%M')
+                    msg += f"    - `{transaction_time}` Rp{tx.amount:,.0f}{description}\n"
     else:
         for tx in transactions:
             icon = "📈" if tx.type == TransactionType.INCOME else "📉"
             date_str = f"`{tx.date.strftime('%d %b')}` | " if include_date else ""
-            msg += f"{date_str}{icon} Rp{tx.amount:,.0f} - {tx.description}\n"
+            transaction_time = tx.created_at.strftime('%H:%M')
+            msg += f"{date_str}`{transaction_time}` | {icon} Rp{tx.amount:,.0f} - {tx.description}\n"
     
     msg += f"\n📈 Total Pemasukan: Rp{total_income:,.0f}"
     msg += f"\n📉 Total Pengeluaran: Rp{total_expense:,.0f}"
