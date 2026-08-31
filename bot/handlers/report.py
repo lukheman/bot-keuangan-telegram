@@ -7,6 +7,31 @@ from app.models import TransactionType
 import logging
 
 logger = logging.getLogger(__name__)
+TELEGRAM_MESSAGE_LIMIT = 4096
+
+async def _send_report(reply_func, message, reply_markup=None, overflow_func=None):
+    lines = message.splitlines(keepends=True)
+    chunks = []
+    current = ""
+
+    for line in lines:
+        if len(current) + len(line) > TELEGRAM_MESSAGE_LIMIT:
+            if current:
+                chunks.append(current)
+            current = line
+        else:
+            current += line
+
+    if current:
+        chunks.append(current)
+
+    for index, chunk in enumerate(chunks):
+        send_func = reply_func if index == 0 or overflow_func is None else overflow_func
+        await send_func(
+            chunk,
+            parse_mode="Markdown",
+            reply_markup=reply_markup if index == len(chunks) - 1 else None,
+        )
 
 def _format_transactions(transactions, total_income, total_expense, title, include_date=False, include_balance=False, expense_by_category=None, group_by_date=False):
     if transactions is None:
@@ -58,16 +83,18 @@ async def ringkasan_hari_ini(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.callback_query.answer()
         await update.callback_query.edit_message_text("⏳ Sedang menyusun laporan hari ini...", parse_mode="Markdown")
         reply_func = update.callback_query.edit_message_text
+        overflow_func = update.callback_query.message.reply_text
         reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="menu_laporan")]])
     else:
         status_msg = await update.message.reply_text("⏳ Sedang menyusun laporan hari ini...", parse_mode="Markdown")
         reply_func = status_msg.edit_text
+        overflow_func = update.message.reply_text
         reply_markup = None
         
     try:
         transactions, inc, exp = await get_daily_summary(update.effective_user.id, date.today())
         msg = _format_transactions(transactions, inc, exp, "Ringkasan Hari Ini")
-        await reply_func(msg, parse_mode="Markdown", reply_markup=reply_markup)
+        await _send_report(reply_func, msg, reply_markup, overflow_func)
     except Exception as e:
         logger.error(f"Error ringkasan_hari_ini: {str(e)}", exc_info=True)
         await reply_func(f"⚠️ Terjadi error: {str(e)}")
@@ -78,16 +105,18 @@ async def ringkasan_minggu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.answer()
         await update.callback_query.edit_message_text("⏳ Sedang merangkum transaksi mingguan...", parse_mode="Markdown")
         reply_func = update.callback_query.edit_message_text
+        overflow_func = update.callback_query.message.reply_text
         reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="menu_laporan")]])
     else:
         status_msg = await update.message.reply_text("⏳ Sedang merangkum transaksi mingguan...", parse_mode="Markdown")
         reply_func = status_msg.edit_text
+        overflow_func = update.message.reply_text
         reply_markup = None
         
     try:
         transactions, inc, exp = await get_weekly_summary(update.effective_user.id, date.today())
         msg = _format_transactions(transactions, inc, exp, "Ringkasan 7 Hari Terakhir", include_date=True)
-        await reply_func(msg, parse_mode="Markdown", reply_markup=reply_markup)
+        await _send_report(reply_func, msg, reply_markup, overflow_func)
     except Exception as e:
         logger.error(f"Error ringkasan_minggu: {str(e)}", exc_info=True)
         await reply_func(f"⚠️ Terjadi error: {str(e)}")
@@ -112,10 +141,12 @@ async def ringkasan_bulan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.answer()
         await update.callback_query.edit_message_text("⏳ Sedang memuat laporan bulanan...", parse_mode="Markdown")
         reply_func = update.callback_query.edit_message_text
+        overflow_func = update.callback_query.message.reply_text
         reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="menu_laporan")]])
     else:
         status_msg = await update.message.reply_text("⏳ Sedang memuat laporan bulanan...", parse_mode="Markdown")
         reply_func = status_msg.edit_text
+        overflow_func = update.message.reply_text
         reply_markup = None
 
     try:
@@ -131,7 +162,7 @@ async def ringkasan_bulan(update: Update, context: ContextTypes.DEFAULT_TYPE):
             expense_by_category=expense_by_category,
             group_by_date=True,
         )
-        await reply_func(msg, parse_mode="Markdown", reply_markup=reply_markup)
+        await _send_report(reply_func, msg, reply_markup, overflow_func)
     except Exception as e:
         logger.error(f"Error ringkasan_bulan: {str(e)}", exc_info=True)
         await reply_func(f"⚠️ Terjadi error: {str(e)}")
