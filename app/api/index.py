@@ -173,10 +173,12 @@ from app.core.config import settings
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from app.core.database import AsyncSessionLocal
-from app.models import Category, User, Transaction, TransactionType
+from app.models import Category, User, Transaction, TransactionType, Wallet
 from sqlalchemy import desc, func, select
 import datetime
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
+import uuid
 
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), '..', 'templates'))
 
@@ -261,7 +263,6 @@ async def dashboard(request: Request):
             
             # Total Saldo (dari tabel wallets bisa juga, tapi untuk simple kita ambil dari user.wallets)
             # Karena eager loading belum disetup, kita ambil manual
-            from app.models import Wallet
             wallet_stmt = select(Wallet).where(Wallet.user_id == user.id)
             wallets = (await session.execute(wallet_stmt)).scalars().all()
             total_balance = sum(w.balance for w in wallets)
@@ -291,6 +292,101 @@ async def logout():
     response = RedirectResponse(url="/login")
     response.delete_cookie("auth_token")
     return response
+
+@app.put("/api/transactions/{transaction_id}")
+async def update_transaction(transaction_id: str, request: Request):
+    token = request.cookies.get("auth_token")
+    if not token:
+        return Response(status_code=401)
+
+    try:
+        payload = jwt.decode(token, settings.TELEGRAM_TOKEN, algorithms=["HS256"])
+        telegram_id = payload.get("telegram_id")
+        data = await request.json()
+        transaction_uuid = uuid.UUID(transaction_id)
+        amount = Decimal(str(data.get("amount")))
+        description = str(data.get("description", "")).strip()
+        category_name = str(data.get("category", "")).strip()
+        if amount <= 0 or not description or not category_name:
+            return Response(status_code=400)
+
+        async with AsyncSessionLocal() as session:
+            user = (await session.execute(select(User).where(User.telegram_id == telegram_id))).scalar_one_or_none()
+            if not user:
+                return Response(status_code=401)
+
+            transaction = (await session.execute(select(Transaction).where(
+                Transaction.id == transaction_uuid,
+                Transaction.user_id == user.id,
+            ))).scalar_one_or_none()
+            if not transaction:
+                return Response(status_code=404)
+
+            wallet = await session.get(Wallet, transaction.wallet_id)
+            if wallet:
+                difference = amount - transaction.amount
+                wallet.balance += difference if transaction.type == TransactionType.INCOME else -difference
+
+            category = (await session.execute(select(Category).where(
+                Category.user_id == user.id,
+                Category.type == transaction.type,
+                Category.name == category_name,
+            ))).scalar_one_or_none()
+            if not category:
+                category = Category(user_id=user.id, name=category_name, type=transaction.type)
+                session.add(category)
+                await session.flush()
+
+            transaction.amount = amount
+            transaction.description = description
+            transaction.category_id = category.id
+            await session.commit()
+            return {"status": "success"}
+    except (jwt.InvalidTokenError, ValueError, InvalidOperation):
+        return Response(status_code=400)
+    except Exception:
+        return Response(status_code=400)
+
+@app.delete("/api/transactions/{transaction_id}")
+async def delete_transaction(transaction_id: str, request: Request):
+    token = request.cookies.get("auth_token")
+    if not token:
+        return Response(status_code=401)
+
+    try:
+        payload = jwt.decode(token, settings.TELEGRAM_TOKEN, algorithms=["HS256"])
+        telegram_id = payload.get("telegram_id")
+        data = await request.json()
+        correct_balance = bool(data.get("correct_balance", False))
+        transaction_uuid = uuid.UUID(transaction_id)
+
+        async with AsyncSessionLocal() as session:
+            user = (await session.execute(select(User).where(User.telegram_id == telegram_id))).scalar_one_or_none()
+            if not user:
+                return Response(status_code=401)
+
+            transaction = (await session.execute(select(Transaction).where(
+                Transaction.id == transaction_uuid,
+                Transaction.user_id == user.id,
+            ))).scalar_one_or_none()
+            if not transaction:
+                return Response(status_code=404)
+
+            if correct_balance:
+                wallet = await session.get(Wallet, transaction.wallet_id)
+                if wallet:
+                    if transaction.type == TransactionType.INCOME:
+                        wallet.balance -= transaction.amount
+                    else:
+                        wallet.balance += transaction.amount
+
+            await session.delete(transaction)
+            await session.commit()
+            return {"status": "success"}
+    except (jwt.InvalidTokenError, ValueError):
+        return Response(status_code=400)
+    except Exception:
+        return Response(status_code=400)
 
 import sqlalchemy as sa
 @app.post("/api/wallets/{wallet_id}/set-primary")
