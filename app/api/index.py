@@ -174,6 +174,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from app.core.database import AsyncSessionLocal
 from app.core.timezone import local_now
+from app.core.timezone import to_local_datetime
 from app.models import Category, User, Transaction, TransactionType, Wallet
 from sqlalchemy import desc, func, select
 import datetime
@@ -226,10 +227,17 @@ async def dashboard(request: Request):
                 tx_stmt = (
                     select(Transaction)
                     .options(joinedload(Transaction.category))
-                    .where(Transaction.user_id == user.id, Transaction.date >= start_date, Transaction.date <= today)
-                    .order_by(desc(Transaction.date), desc(Transaction.id))
+                    .where(Transaction.user_id == user.id)
+                    .order_by(desc(Transaction.created_at), desc(Transaction.id))
                 )
-                return (await session.execute(tx_stmt)).scalars().all()
+                transactions = (await session.execute(tx_stmt)).scalars().all()
+                local_transactions = []
+                for transaction in transactions:
+                    transaction.local_created_at = to_local_datetime(transaction.created_at, user.timezone)
+                    if start_date <= transaction.local_created_at.date() <= today:
+                        transaction.date = transaction.local_created_at.date()
+                        local_transactions.append(transaction)
+                return local_transactions
 
             transactions_today = await get_transactions_since(today)
             transactions_week = await get_transactions_since(today - timedelta(days=today.weekday()))
@@ -237,28 +245,29 @@ async def dashboard(request: Request):
             
             # Hitung statistik bulan ini
             current_month = today.replace(day=1)
-            stat_stmt = select(Transaction).where(Transaction.user_id == user.id, Transaction.date >= current_month)
-            month_tx = (await session.execute(stat_stmt)).scalars().all()
+            month_tx = [
+                transaction
+                for transaction in transactions_month
+                if transaction.local_created_at.date() >= current_month
+            ]
             
             total_income = sum(tx.amount for tx in month_tx if tx.type == TransactionType.INCOME)
             total_expense = sum(tx.amount for tx in month_tx if tx.type == TransactionType.EXPENSE)
 
-            category_stmt = (
-                select(Transaction.type, Category.name, func.sum(Transaction.amount))
-                .join(Category, Transaction.category_id == Category.id)
-                .where(Transaction.user_id == user.id, Transaction.date >= current_month)
-                .group_by(Transaction.type, Category.name)
-                .order_by(func.sum(Transaction.amount).desc())
-            )
-            category_rows = (await session.execute(category_stmt)).all()
+            category_totals = {}
+            for transaction in month_tx:
+                category_name = transaction.category.name if transaction.category else "Lainnya"
+                key = (transaction.type, category_name)
+                category_totals[key] = category_totals.get(key, 0) + transaction.amount
+            category_rows = sorted(category_totals.items(), key=lambda item: item[1], reverse=True)
             income_categories = [
                 {"name": name, "total": float(total)}
-                for transaction_type, name, total in category_rows
+                for (transaction_type, name), total in category_rows
                 if transaction_type == TransactionType.INCOME
             ]
             expense_categories = [
                 {"name": name, "total": float(total)}
-                for transaction_type, name, total in category_rows
+                for (transaction_type, name), total in category_rows
                 if transaction_type == TransactionType.EXPENSE
             ]
             
