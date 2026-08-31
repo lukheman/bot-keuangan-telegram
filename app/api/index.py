@@ -173,6 +173,7 @@ from app.core.config import settings
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from app.core.database import AsyncSessionLocal
+from app.core.timezone import local_now
 from app.models import Category, User, Transaction, TransactionType, Wallet
 from sqlalchemy import desc, func, select
 import datetime
@@ -219,7 +220,7 @@ async def dashboard(request: Request):
                 return RedirectResponse(url="/login")
                 
             from sqlalchemy.orm import joinedload
-            today = datetime.date.today()
+            today = local_now(user.timezone).date()
 
             async def get_transactions_since(start_date):
                 tx_stmt = (

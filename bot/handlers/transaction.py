@@ -71,7 +71,7 @@ async def select_wallet_callback(update: Update, context: ContextTypes.DEFAULT_T
             msg = (
                 f"{icon} *{jenis} Otomatis Dicatat!*\n\n"
                 f"💵 *Jumlah:* Rp{tx.amount:,.0f}\n"
-                f"🕒 *Waktu:* {tx.created_at.strftime('%d %b %Y, %H:%M')}\n"
+                f"🕒 *Waktu:* {tx.local_created_at.strftime('%d %b %Y, %H:%M')}\n"
                 f"📝 *Deskripsi:* {tx.description}\n"
                 f"🏷️ *Kategori:* {tx.category_name}\n"
                 f"💼 *Dompet:* {tx.wallet_name}"
@@ -144,7 +144,7 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = (
                 f"{icon} *{jenis} Berhasil Dicatat!*\n\n"
                 f"💵 *Jumlah:* Rp{result.amount:,.0f}\n"
-                f"🕒 *Waktu:* {tx.created_at.strftime('%d %b %Y, %H:%M')}\n"
+                f"🕒 *Waktu:* {tx.local_created_at.strftime('%d %b %Y, %H:%M')}\n"
                 f"📝 *Deskripsi:* {result.description}\n"
                 f"🏷️ *Kategori:* {result.category}\n"
                 f"💼 *Dompet:* {wallet_display}"
@@ -219,10 +219,9 @@ async def _catat_transaksi(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         await update.message.reply_text(
             f"{icon} *{jenis} Berhasil Dicatat!*\n\n"
             f"💵 *Jumlah:* Rp{amount:,.0f}\n"
-            f"🕒 *Waktu:* {tx.created_at.strftime('%d %b %Y, %H:%M')}\n"
+            f"🕒 *Waktu:* {tx.local_created_at.strftime('%d %b %Y, %H:%M')}\n"
             f"📝 *Deskripsi:* {description}\n"
-            f"💼 *Dompet:* {tx.wallet_name}\n"
-            f"📅 *Tanggal:* {date.today().strftime('%d %b %Y')}",
+            f"💼 *Dompet:* {tx.wallet_name}",
             parse_mode="Markdown"
         )
     except ValueError as ve:
@@ -282,7 +281,7 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"⚖️ *Penyesuaian Saldo Otomatis!*\n\n"
                     f"Saldo disesuaikan menjadi Rp{result.amount:,.0f}.\n"
                     f"Dicatat sebagai *{jenis}* sebesar Rp{tx.amount:,.0f} agar sesuai.\n\n"
-                    f"🕒 *Waktu:* {tx.created_at.strftime('%d %b %Y, %H:%M')}\n"
+            f"🕒 *Waktu:* {tx.local_created_at.strftime('%d %b %Y, %H:%M')}\n"
                     f"💼 *Dompet:* {tx.wallet_name}"
                 )
                 await status_message.edit_text(msg, parse_mode="Markdown")
@@ -338,7 +337,7 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = (
                 f"{icon} *{jenis} Otomatis Dicatat!*\n\n"
                 f"💵 *Jumlah:* Rp{result.amount:,.0f}\n"
-                f"🕒 *Waktu:* {tx.created_at.strftime('%d %b %Y, %H:%M')}\n"
+                f"🕒 *Waktu:* {tx.local_created_at.strftime('%d %b %Y, %H:%M')}\n"
                 f"📝 *Deskripsi:* {result.description}\n"
                 f"🏷️ *Kategori:* {result.category}\n"
                 f"💼 *Dompet:* {wallet_display}"

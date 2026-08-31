@@ -3,23 +3,34 @@ from datetime import date, timedelta
 from typing import Tuple, List, Optional
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 from app.core.database import AsyncSessionLocal
 from app.models import Category, User, Transaction, TransactionType
+from app.core.timezone import local_now, to_local_datetime
+
+async def get_user_local_date(telegram_id: int) -> date:
+    async with AsyncSessionLocal() as session:
+        user = (await session.execute(select(User).where(User.telegram_id == telegram_id))).scalar_one_or_none()
+        return local_now(user.timezone if user else None).date()
 
 async def _get_user_transactions(session: AsyncSession, telegram_id: int, start_date: date, end_date: date):
     stmt_user = select(User).where(User.telegram_id == telegram_id)
     user = (await session.execute(stmt_user)).scalar_one_or_none()
     if not user:
         return None
-    
-    stmt_tx = select(Transaction).where(
-        Transaction.user_id == user.id,
-        Transaction.date >= start_date,
-        Transaction.date <= end_date
-    ).order_by(Transaction.date.desc())
+
+    stmt_tx = select(Transaction).options(joinedload(Transaction.category)).where(
+        Transaction.user_id == user.id
+    ).order_by(Transaction.created_at.desc())
     
     transactions = (await session.execute(stmt_tx)).scalars().all()
-    return transactions
+    local_transactions = []
+    for transaction in transactions:
+        transaction.local_created_at = to_local_datetime(transaction.created_at, user.timezone)
+        if start_date <= transaction.local_created_at.date() <= end_date:
+            transaction.date = transaction.local_created_at.date()
+            local_transactions.append(transaction)
+    return local_transactions
 
 async def get_summary_by_date_range(telegram_id: int, start_date: date, end_date: date) -> Tuple[Optional[List[Transaction]], float, float]:
     async with AsyncSessionLocal() as session:
@@ -48,21 +59,10 @@ async def get_monthly_summary(telegram_id: int, year: int, month: int):
     if summary[0] is None:
         return (*summary, {})
 
-    async with AsyncSessionLocal() as session:
-        category_stmt = (
-            select(Category.name, func.sum(Transaction.amount).label("total"))
-            .join(Transaction, Transaction.category_id == Category.id)
-            .join(User, Transaction.user_id == User.id)
-            .where(
-                User.telegram_id == telegram_id,
-                Transaction.type == TransactionType.EXPENSE,
-                Transaction.date >= start_date,
-                Transaction.date <= end_date,
-            )
-            .group_by(Category.name)
-            .order_by(func.sum(Transaction.amount).desc())
-        )
-        category_rows = (await session.execute(category_stmt)).all()
-
-    expense_by_category = {name: float(total) for name, total in category_rows}
+    expense_by_category = {}
+    for transaction in summary[0]:
+        if transaction.type == TransactionType.EXPENSE:
+            category_name = transaction.category.name if transaction.category else "Lainnya"
+            expense_by_category[category_name] = expense_by_category.get(category_name, 0) + float(transaction.amount)
+    expense_by_category = dict(sorted(expense_by_category.items(), key=lambda item: item[1], reverse=True))
     return (*summary, expense_by_category)

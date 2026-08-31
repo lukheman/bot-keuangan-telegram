@@ -1,5 +1,5 @@
 import decimal
-from datetime import date
+from app.core.timezone import local_now
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import AsyncSessionLocal
@@ -120,13 +120,14 @@ async def record_transaction(telegram_user, amount: decimal.Decimal, description
             amount=amount,
             type=tx_type,
             description=description,
-            date=date.today()
+            date=local_now(user.timezone).date()
         )
         session.add(new_tx)
         await session.commit()
         await session.refresh(new_tx)
         new_tx.category_name = category.name
         new_tx.wallet_name = wallet.name
+        new_tx.local_created_at = local_now(user.timezone)
         logger.debug(f"Transaksi tersimpan di database: id={new_tx.id}, wallet={wallet.name}")
         return new_tx
 

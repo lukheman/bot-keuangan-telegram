@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import date
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from app.services.report_service import get_daily_summary, get_weekly_summary, get_monthly_summary
+from app.services.report_service import get_daily_summary, get_weekly_summary, get_monthly_summary, get_user_local_date
 from app.models import TransactionType
 import logging
 
@@ -57,13 +57,13 @@ def _format_transactions(transactions, total_income, total_expense, title, inclu
                 msg += f"  - *{label}*\n"
                 for tx in type_transactions:
                     description = f" - {tx.description}" if tx.description else ""
-                    transaction_time = tx.created_at.strftime('%H:%M')
+                    transaction_time = tx.local_created_at.strftime('%H:%M')
                     msg += f"    - `{transaction_time}` Rp{tx.amount:,.0f}{description}\n"
     else:
         for tx in transactions:
             icon = "📈" if tx.type == TransactionType.INCOME else "📉"
             date_str = f"`{tx.date.strftime('%d %b')}` | " if include_date else ""
-            transaction_time = tx.created_at.strftime('%H:%M')
+            transaction_time = tx.local_created_at.strftime('%H:%M')
             msg += f"{date_str}`{transaction_time}` | {icon} Rp{tx.amount:,.0f} - {tx.description}\n"
     
     msg += f"\n📈 Total Pemasukan: Rp{total_income:,.0f}"
@@ -92,7 +92,10 @@ async def ringkasan_hari_ini(update: Update, context: ContextTypes.DEFAULT_TYPE)
         reply_markup = None
         
     try:
-        transactions, inc, exp = await get_daily_summary(update.effective_user.id, date.today())
+        transactions, inc, exp = await get_daily_summary(
+            update.effective_user.id,
+            await get_user_local_date(update.effective_user.id),
+        )
         msg = _format_transactions(transactions, inc, exp, "Ringkasan Hari Ini")
         await _send_report(reply_func, msg, reply_markup, overflow_func)
     except Exception as e:
@@ -114,7 +117,10 @@ async def ringkasan_minggu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = None
         
     try:
-        transactions, inc, exp = await get_weekly_summary(update.effective_user.id, date.today())
+        transactions, inc, exp = await get_weekly_summary(
+            update.effective_user.id,
+            await get_user_local_date(update.effective_user.id),
+        )
         msg = _format_transactions(transactions, inc, exp, "Ringkasan 7 Hari Terakhir", include_date=True)
         await _send_report(reply_func, msg, reply_markup, overflow_func)
     except Exception as e:
@@ -122,7 +128,7 @@ async def ringkasan_minggu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await reply_func(f"⚠️ Terjadi error: {str(e)}")
 
 async def ringkasan_bulan(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    today = date.today()
+    today = await get_user_local_date(update.effective_user.id)
     target_month = today.month
     target_year = today.year
 
