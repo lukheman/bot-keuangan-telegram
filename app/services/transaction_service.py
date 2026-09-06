@@ -1,5 +1,6 @@
 import decimal
 from app.core.timezone import local_now
+from app.services.budget_service import get_budget_warning
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import AsyncSessionLocal
@@ -288,6 +289,9 @@ async def record_transaction(telegram_user, amount: decimal.Decimal, description
         new_tx.category_name = category.name
         new_tx.wallet_name = wallet.name
         new_tx.local_created_at = local_now(user.timezone)
+        new_tx.budget_warning = await get_budget_warning(
+            session, user, category, new_tx.amount
+        )
         logger.debug(f"Transaksi tersimpan di database: id={new_tx.id}, wallet={wallet.name}")
         return new_tx
 

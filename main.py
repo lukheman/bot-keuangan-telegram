@@ -30,6 +30,7 @@ from bot.handlers.wallet_interactive import (
     cek_saldo
 )
 from bot.handlers.menu import tampilkan_menu, menu_callback
+from bot.handlers.budget import kelola_budget
 
 TOKEN = settings.TELEGRAM_TOKEN
 
@@ -42,6 +43,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/saldo - Cek daftar dompet & saldo\n"
         "/masuk [jumlah] [deskripsi] - Catat pemasukan\n"
         "/keluar [jumlah] [deskripsi] - Catat pengeluaran\n"
+        "/budget [kategori] [nominal] - Atur budget bulanan\n"
         "/menu - Tampilkan menu interaktif"
     )
 
@@ -58,6 +60,7 @@ def create_app():
     
     app.add_handler(CommandHandler("masuk", catat_pemasukan))
     app.add_handler(CommandHandler("keluar", catat_pengeluaran))
+    app.add_handler(CommandHandler("budget", kelola_budget))
     app.add_handler(CommandHandler("menu", tampilkan_menu))
     app.add_handler(CommandHandler("saldo", cek_saldo))
     app.add_handler(CommandHandler("dompet", cek_saldo))

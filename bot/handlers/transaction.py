@@ -108,6 +108,8 @@ async def select_wallet_callback(update: Update, context: ContextTypes.DEFAULT_T
                 f"🏷️ *Kategori:* {tx.category_name}\n"
                 f"💼 *Dompet:* {tx.wallet_name}"
             )
+            if getattr(tx, "budget_warning", None):
+                msg += f"\n\n{tx.budget_warning}"
             await query.edit_message_text(msg, parse_mode="Markdown")
         except Exception as e:
             logger.error(f"Gagal mencatat transaksi tertunda: {str(e)}", exc_info=True)
@@ -181,6 +183,8 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🏷️ *Kategori:* {result.category}\n"
                 f"💼 *Dompet:* {wallet_display}"
             )
+            if getattr(tx, "budget_warning", None):
+                msg += f"\n\n{tx.budget_warning}"
             await status_message.edit_text(msg, parse_mode="Markdown")
         except ValueError as ve:
             await status_message.edit_text(f"⚠️ {str(ve)}")
@@ -248,14 +252,16 @@ async def _catat_transaksi(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         await append_to_sheet(tx)
 
         jenis = "Pemasukan" if tx_type == TransactionType.INCOME else "Pengeluaran"
-        await update.message.reply_text(
+        msg = (
             f"{icon} *{jenis} Berhasil Dicatat!*\n\n"
             f"💵 *Jumlah:* Rp{amount:,.0f}\n"
             f"🕒 *Waktu:* {tx.local_created_at.strftime('%d %b %Y, %H:%M')}\n"
             f"📝 *Deskripsi:* {description}\n"
-            f"💼 *Dompet:* {tx.wallet_name}",
-            parse_mode="Markdown"
+            f"💼 *Dompet:* {tx.wallet_name}"
         )
+        if getattr(tx, "budget_warning", None):
+            msg += f"\n\n{tx.budget_warning}"
+        await update.message.reply_text(msg, parse_mode="Markdown")
     except ValueError as ve:
         await update.message.reply_text(f"⚠️ {str(ve)}")
     except Exception as e:
@@ -404,6 +410,8 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🏷️ *Kategori:* {result.category}\n"
                 f"💼 *Dompet:* {wallet_display}"
             )
+            if getattr(tx, "budget_warning", None):
+                msg += f"\n\n{tx.budget_warning}"
             await status_message.edit_text(msg, parse_mode="Markdown")
         except ValueError as ve:
             await status_message.edit_text(f"⚠️ {str(ve)}")
