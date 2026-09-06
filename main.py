@@ -8,7 +8,7 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
-from telegram import Update
+from telegram import BotCommand, Update
 from datetime import timedelta
 
 from telegram.ext import (
@@ -21,7 +21,7 @@ from telegram.ext import (
 )
 
 from app.core.config import settings
-from bot.handlers.transaction import proses_gambar, proses_teks, catat_pemasukan, catat_pengeluaran
+from bot.handlers.transaction import proses_gambar, proses_teks
 from bot.handlers.report import (
     ringkasan_hari_ini,
     ringkasan_minggu,
@@ -42,6 +42,27 @@ from bot.handlers.budget import kelola_budget
 
 TOKEN = settings.TELEGRAM_TOKEN
 
+# Daftar perintah untuk menu autocomplete "/" di Telegram.
+BOT_COMMANDS = [
+    BotCommand("start", "Mulai bot"),
+    BotCommand("menu", "Tampilkan menu interaktif"),
+    BotCommand("saldo", "Cek daftar dompet & saldo"),
+    BotCommand("dompet", "Cek daftar dompet & saldo"),
+    BotCommand("budget", "Atur budget bulanan"),
+    BotCommand("laporan_harian", "Notifikasi laporan otomatis jam 8 malam"),
+    BotCommand("register", "Daftarkan akun"),
+    BotCommand("akun", "Info akun"),
+    BotCommand("login_web", "Login dashboard web"),
+    BotCommand("hapus_akun", "Hapus akun"),
+]
+
+
+async def set_bot_commands(application) -> None:
+    """Daftarkan command list ke Telegram setiap bot initialize (polling/webhook/serverless)."""
+    await application.bot.set_my_commands(BOT_COMMANDS)
+    logger.info(f"✅ {len(BOT_COMMANDS)} bot commands terdaftar di Telegram.")
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Halo! Aku bisa membaca teks dari gambar.\n\n"
@@ -49,8 +70,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Perintah:\n"
         "/start - Mulai bot\n"
         "/saldo - Cek daftar dompet & saldo\n"
-        "/masuk [jumlah] [deskripsi] - Catat pemasukan\n"
-        "/keluar [jumlah] [deskripsi] - Catat pengeluaran\n"
         "/budget [kategori] [nominal] - Atur budget bulanan\n"
         "/laporan_harian [on|off] - Notifikasi laporan otomatis jam 8 malam\n"
         "/menu - Tampilkan menu interaktif"
@@ -59,7 +78,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 from bot.handlers.account import register_user, account_info, delete_account, login_web
 
 def create_app():
-    app = ApplicationBuilder().token(TOKEN).build()
+    app = ApplicationBuilder().token(TOKEN).post_init(set_bot_commands).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("register", register_user))
@@ -67,8 +86,6 @@ def create_app():
     app.add_handler(CommandHandler("hapus_akun", delete_account))
     app.add_handler(CommandHandler("login_web", login_web))
     
-    app.add_handler(CommandHandler("masuk", catat_pemasukan))
-    app.add_handler(CommandHandler("keluar", catat_pengeluaran))
     app.add_handler(CommandHandler("budget", kelola_budget))
     app.add_handler(CommandHandler("laporan_harian", atur_laporan_harian))
 

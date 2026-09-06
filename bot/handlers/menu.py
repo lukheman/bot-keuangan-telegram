@@ -76,7 +76,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(
             "📈 *Bantuan Pencatatan*\n\n"
             "• *Otomatis:* Kirim foto struk belanja / bukti transfer ke bot ini.\n"
-            "• *Manual:* Ketik `/masuk [nominal] [keterangan]` atau `/keluar [nominal] [keterangan]`.\n"
+            "• *Catat transaksi:* Cukup ketik seperti `beli kopi 20rb`, `gaji 5jt`, atau kirim foto struk — bot mencatat otomatis.\n"
             "• *Dompet:* Ketik `/saldo` atau `/dompet` untuk melihat daftar dompet & saldo langsung.\n"
             "• *Transfer:* Ketik `transfer dari [asal] ke [tujuan] sebesar [nominal]` (contoh: `transfer dari bri ke tunai sebesar 500 ribu dengan admin 5k`).\n"
             "• *Budget:* Ketik `/budget [kategori] [nominal]` (contoh: `/budget makanan 1jt`), `/budget` untuk melihat pemakaian, `/budget hapus [kategori]` untuk menghapus.\n"

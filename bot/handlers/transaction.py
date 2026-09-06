@@ -3,7 +3,6 @@ import decimal
 import uuid
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from datetime import date
 from app.services.groq_service import analyze_transaction
 from app.services.transaction_service import record_transaction, record_transfer
 from app.services.sheets_service import append_to_sheet
@@ -199,80 +198,6 @@ async def proses_gambar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             os.remove(file_path)
 
 
-
-async def _catat_transaksi(update: Update, context: ContextTypes.DEFAULT_TYPE, tx_type: TransactionType, command_name: str, verb: str, icon: str):
-    if not context.args or len(context.args) < 2:
-        await update.message.reply_text(
-            f"⚠️ *Format salah!*\n\n"
-            f"Gunakan: `/{command_name} [jumlah] [deskripsi]`\n"
-            f"Contoh: `/{command_name} 50000 {verb}`",
-            parse_mode="Markdown"
-        )
-        return
-
-    try:
-        amount_str = context.args[0].replace(".", "").replace(",", "")
-        amount = decimal.Decimal(amount_str)
-        description = " ".join(context.args[1:])
-    except decimal.InvalidOperation:
-        await update.message.reply_text("⚠️ Jumlah transaksi harus berupa angka yang valid.")
-        return
-
-    try:
-        logger.info(f"Mencatat manual ({command_name}): User {update.effective_user.id}, Rp{amount}, {description}")
-        
-        async with AsyncSessionLocal() as session:
-            user = await get_or_create_user(session, update.effective_user.id, update.effective_user.username, update.effective_user.full_name)
-            stmt = select(Wallet).where(Wallet.user_id == user.id)
-            wallets = (await session.execute(stmt)).scalars().all()
-            
-        if len(wallets) > 1:
-            tx_id = uuid.uuid4().hex[:8]
-            pending_transactions[tx_id] = {
-                "user": update.effective_user,
-                "amount": amount,
-                "description": description,
-                "type": tx_type,
-                "category": None,
-                "confidence": 1.0 # Manual input is 100% confident
-            }
-            
-            keyboard = []
-            for w in wallets:
-                keyboard.append([InlineKeyboardButton(w.name, callback_data=f"sel_w_{tx_id}_{w.id.hex}")])
-            keyboard.append([InlineKeyboardButton("❌ Batal", callback_data=f"sel_w_cancel_{tx_id}")])
-            
-            msg = f"💳 *Pilih Dompet*\n\nTransaksi *Rp{amount:,.0f}* ({description}) belum menentukan dompet. Silakan pilih dompet:"
-            await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
-            return
-            
-        tx = await record_transaction(update.effective_user, amount, description, tx_type)
-
-        # Catat ke Google Sheets
-        await append_to_sheet(tx)
-
-        jenis = "Pemasukan" if tx_type == TransactionType.INCOME else "Pengeluaran"
-        msg = (
-            f"{icon} *{jenis} Berhasil Dicatat!*\n\n"
-            f"💵 *Jumlah:* Rp{amount:,.0f}\n"
-            f"🕒 *Waktu:* {tx.local_created_at.strftime('%d %b %Y, %H:%M')}\n"
-            f"📝 *Deskripsi:* {description}\n"
-            f"💼 *Dompet:* {tx.wallet_name}"
-        )
-        if getattr(tx, "budget_warning", None):
-            msg += f"\n\n{tx.budget_warning}"
-        await update.message.reply_text(msg, parse_mode="Markdown")
-    except ValueError as ve:
-        await update.message.reply_text(f"⚠️ {str(ve)}")
-    except Exception as e:
-        logger.error(f"Gagal mencatat transaksi manual: {str(e)}", exc_info=True)
-        await update.message.reply_text(f"⚠️ Terjadi error saat menyimpan ke database: {str(e)}")
-
-async def catat_pemasukan(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await _catat_transaksi(update, context, TransactionType.INCOME, "masuk", "gaji bulan ini", "📈")
-
-async def catat_pengeluaran(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await _catat_transaksi(update, context, TransactionType.EXPENSE, "keluar", "makan siang", "📉")
 
 from app.services.groq_service import analyze_text_transaction
 
