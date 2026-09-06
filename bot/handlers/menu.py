@@ -77,6 +77,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📈 *Bantuan Pencatatan*\n\n"
             "• *Otomatis:* Kirim foto struk belanja / bukti transfer ke bot ini.\n"
             "• *Manual:* Ketik `/masuk [nominal] [keterangan]` atau `/keluar [nominal] [keterangan]`.\n"
+            "• *Dompet:* Ketik `/saldo` atau `/dompet` untuk melihat daftar dompet & saldo langsung.\n"
             "• *Transfer:* Ketik `transfer dari [asal] ke [tujuan] sebesar [nominal]` (contoh: `transfer dari bri ke tunai sebesar 500 ribu dengan admin 5k`).",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="menu_utama")]])
