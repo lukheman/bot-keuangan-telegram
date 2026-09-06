@@ -62,6 +62,32 @@ async def bot_info():
         "telegram_webhook_ready": True
     }
 
+@app.get("/api/cron/daily-report")
+async def cron_daily_report(request: Request):
+    """Dipicu Vercel Cron tiap jam. Mengirim laporan ke user yang sudah jam 8 malam lokal.
+
+    Amankan dengan env CRON_SECRET (kirim sebagai ?secret= atau header Authorization).
+    """
+    from app.core.config import settings as cron_settings
+
+    if cron_settings.CRON_SECRET:
+        given = request.query_params.get("secret", "")
+        auth = request.headers.get("authorization", "")
+        if auth.lower().startswith("bearer "):
+            given = auth[7:].strip()
+        if given != cron_settings.CRON_SECRET:
+            return Response(status_code=403, content="Forbidden")
+
+    try:
+        from bot.handlers.report import kirim_laporan_harian_otomatis
+
+        bot_app = await get_ptb_app()
+        hasil = await kirim_laporan_harian_otomatis(bot_app.bot)
+        return {"status": "success", **hasil}
+    except Exception as e:
+        logger.error(f"Error cron daily-report: {e}", exc_info=True)
+        return Response(status_code=500, content="Internal Server Error")
+
 @app.get("/api/set_webhook")
 async def set_webhook(request: Request):
     bot_app = await get_ptb_app()

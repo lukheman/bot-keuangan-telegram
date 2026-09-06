@@ -9,6 +9,8 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 from telegram import Update
+from datetime import timedelta
+
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -20,7 +22,13 @@ from telegram.ext import (
 
 from app.core.config import settings
 from bot.handlers.transaction import proses_gambar, proses_teks, catat_pemasukan, catat_pengeluaran
-from bot.handlers.report import ringkasan_hari_ini, ringkasan_minggu, ringkasan_bulan
+from bot.handlers.report import (
+    ringkasan_hari_ini,
+    ringkasan_minggu,
+    ringkasan_bulan,
+    atur_laporan_harian,
+    laporan_harian_job,
+)
 from bot.handlers.wallet_interactive import (
     interactive_wallet_conv, 
     interactive_del_wallet_menu, 
@@ -44,6 +52,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/masuk [jumlah] [deskripsi] - Catat pemasukan\n"
         "/keluar [jumlah] [deskripsi] - Catat pengeluaran\n"
         "/budget [kategori] [nominal] - Atur budget bulanan\n"
+        "/laporan_harian [on|off] - Notifikasi laporan otomatis jam 8 malam\n"
         "/menu - Tampilkan menu interaktif"
     )
 
@@ -61,6 +70,17 @@ def create_app():
     app.add_handler(CommandHandler("masuk", catat_pemasukan))
     app.add_handler(CommandHandler("keluar", catat_pengeluaran))
     app.add_handler(CommandHandler("budget", kelola_budget))
+    app.add_handler(CommandHandler("laporan_harian", atur_laporan_harian))
+
+    # Scheduler laporan otomatis jam 8 malam (aktif di proses long-running:
+    # polling maupun webhook server biasa; di serverless tidak persist).
+    if app.job_queue is not None:
+        app.job_queue.run_repeating(
+            laporan_harian_job,
+            interval=timedelta(minutes=15),
+            first=timedelta(seconds=60),
+            name="laporan_harian_otomatis",
+        )
     app.add_handler(CommandHandler("menu", tampilkan_menu))
     app.add_handler(CommandHandler("saldo", cek_saldo))
     app.add_handler(CommandHandler("dompet", cek_saldo))

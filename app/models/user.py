@@ -1,7 +1,8 @@
 import uuid
+from datetime import date
 from typing import List, Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import BigInteger, String
+from sqlalchemy import BigInteger, Boolean, Date, String
 from app.models.base import BaseModel
 
 class User(BaseModel):
@@ -12,6 +13,8 @@ class User(BaseModel):
     full_name: Mapped[str] = mapped_column(String(255))
     currency: Mapped[str] = mapped_column(String(10), default="IDR")
     timezone: Mapped[str] = mapped_column(String(50), default="Asia/Makassar")
+    daily_report_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_daily_report_at: Mapped[Optional[date]] = mapped_column(Date, nullable=True, default=None)
 
     # Relationships (menggunakan string quotes untuk menghindari circular import)
     categories: Mapped[List["Category"]] = relationship("Category", back_populates="user", cascade="all, delete-orphan")

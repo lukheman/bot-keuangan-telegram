@@ -10,5 +10,11 @@
       "source": "/(.*)",
       "destination": "/app/api/index.py"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/daily-report",
+      "schedule": "0 * * * *"
+    }
   ]
 }
