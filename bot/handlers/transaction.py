@@ -5,7 +5,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from datetime import date
 from app.services.groq_service import analyze_transaction
-from app.services.transaction_service import record_transaction
+from app.services.transaction_service import record_transaction, record_transfer
 from app.services.sheets_service import append_to_sheet
 from app.models import TransactionType
 import logging
@@ -17,6 +17,38 @@ from app.services.transaction_service import get_or_create_user
 logger = logging.getLogger(__name__)
 
 pending_transactions = {}
+
+
+async def _simpan_transfer(update_effective_user, amount, source_name, dest_name, fee, description):
+    """Panggil record_transfer dan catat semua sisinya ke Google Sheets."""
+    result = await record_transfer(
+        update_effective_user,
+        amount,
+        source_name,
+        dest_name,
+        fee=fee,
+        description=description,
+    )
+    await append_to_sheet(result["out_tx"])
+    await append_to_sheet(result["in_tx"])
+    if result["fee_tx"] is not None:
+        await append_to_sheet(result["fee_tx"])
+    return result
+
+
+def _format_transfer_berhasil(result: dict) -> str:
+    waktu = result["local_created_at"].strftime('%d %b %Y, %H:%M')
+    fee_line = f"🧾 *Admin:* Rp{result['fee']:,.0f}\n" if result["fee"] > 0 else ""
+    return (
+        "🔁 *Transfer Berhasil Dicatat!*\n\n"
+        f"💵 *Jumlah:* Rp{result['amount']:,.0f}\n"
+        f"{fee_line}"
+        f"📤 *Dari:* {result['source_wallet'].name} (Rp{result['source_wallet'].balance:,.0f})\n"
+        f"📥 *Ke:* {result['dest_wallet'].name} (Rp{result['dest_wallet'].balance:,.0f})\n"
+        f"🕒 *Waktu:* {waktu}\n"
+        f"📝 *Deskripsi:* {result['description']}"
+    )
+
 
 async def select_wallet_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -262,6 +294,36 @@ async def proses_teks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if not result.is_valid:
             await status_message.edit_text(f"❌ Pesan tidak dikenali sebagai transaksi.\n({result.reason})")
+            return
+
+        if result.type == "TRANSFER":
+            source_name = result.source_wallet
+            dest_name = result.destination_wallet
+            if not source_name or not dest_name:
+                await status_message.edit_text(
+                    "⚠️ Dompet asal atau tujuan tidak terbaca.\n"
+                    "Contoh: `transfer dari bri ke tunai sebesar 500 ribu dengan admin 5k`",
+                    parse_mode="Markdown",
+                )
+                return
+            try:
+                fee = decimal.Decimal(str(result.fee or 0))
+                transfer_result = await _simpan_transfer(
+                    update.effective_user,
+                    decimal.Decimal(str(result.amount)),
+                    source_name,
+                    dest_name,
+                    fee,
+                    result.description or f"Transfer {source_name} ke {dest_name}",
+                )
+                await status_message.edit_text(
+                    _format_transfer_berhasil(transfer_result), parse_mode="Markdown"
+                )
+            except (decimal.InvalidOperation, ValueError) as ve:
+                await status_message.edit_text(f"⚠️ {str(ve)}")
+            except Exception as e:
+                logger.error(f"Gagal mencatat transfer (AI): {str(e)}", exc_info=True)
+                await status_message.edit_text("⚠️ Terjadi error saat menyimpan transfer.")
             return
 
         if result.type == "CORRECTION":

@@ -41,11 +41,14 @@ Output: HANYA satu objek JSON murni. Dilarang keras menambahkan teks, komentar, 
 
 ## FORMAT OUTPUT
 {
-  "type": "INCOME" | "EXPENSE" | "CORRECTION",
+  "type": "INCOME" | "EXPENSE" | "CORRECTION" | "TRANSFER",
   "amount": <integer positif, tanpa desimal. Terjemahkan: '15rb'=15000, '1.5jt'=1500000, '20k'=20000, '½ juta'=500000>,
-  "description": "<Nama produk/jasa inti. Contoh input 'beli siomay 10rb' → output 'Beli Siomay'.>",
-  "category": "<tepat satu dari: Makanan | Transportasi | Bensin | Buku | Kebersihan | Kesehatan | Hiburan | Perawatan | Freelance | Kerja | Pendidikan | ATK | Lainnya>",
-  "wallet_name": "<nama platform/bank yang disebut eksplisit: BCA | Mandiri | BRI | BNI | Gopay | OVO | Dana | ShopeePay | Tunai | dll. Kosongkan \"\" jika tidak disebutkan>",
+  "description": "<Nama produk/jasa inti. Contoh input 'beli siomay 10rb' → output 'Beli Siomay'. Untuk TRANSFER gunakan 'Transfer <asal> ke <tujuan>'.>",
+  "category": "<tepat satu dari: Makanan | Transportasi | Bensin | Buku | Kebersihan | Kesehatan | Hiburan | Perawatan | Freelance | Kerja | Pendidikan | ATK | Lainnya. Untuk TRANSFER gunakan 'Transfer'.>",
+  "wallet_name": "<nama platform/bank yang disebut eksplisit: BCA | Mandiri | BRI | BNI | Gopay | OVO | Dana | ShopeePay | Tunai | dll. Kosongkan \"\" jika tidak disebutkan. Untuk TRANSFER kosongkan dan isi source_wallet/destination_wallet.>",
+  "source_wallet": "<wajib untuk TRANSFER: dompet asal. Contoh 'transfer dari bri ke tunai' → 'bri'. Kosongkan \"\" untuk tipe lain.>",
+  "destination_wallet": "<wajib untuk TRANSFER: dompet tujuan. Contoh 'transfer dari bri ke tunai' → 'tunai'. Kosongkan \"\" untuk tipe lain.>",
+  "fee": <integer >= 0 untuk TRANSFER: biaya admin. Contoh 'dengan admin 5k' → 5000. 0 bila tidak ada. Untuk tipe lain 0.>,
   "confidence": <float 0.0–1.0. Panduan: 0.95 = lengkap & jelas; 0.7–0.94 = ada ambiguitas kecil; 0.4–0.69 = nominal/tipe perlu ditebak; <0.4 = sangat tidak jelas>,
   "is_valid": <true | false>,
   "reason": "<wajib diisi jika is_valid false. Kosong \"\" jika true>"
@@ -55,6 +58,7 @@ Output: HANYA satu objek JSON murni. Dilarang keras menambahkan teks, komentar, 
 - EXPENSE    : pengeluaran, pembelian, pembayaran, top-up e-wallet, dan semacamnya
 - INCOME     : gajian, dapat transferan, terima pembayaran, dan semacamnya
 - CORRECTION : jika pengguna menyatakan SISA SALDO / SALDO SAAT INI (contoh: "ternyata sisa saldo gopay saya 50000", "uang fisik sisa 10rb"). Pada tipe ini, 'amount' adalah sisa saldo akhir yang disebutkan pengguna.
+- TRANSFER   : jika pengguna memindahkan uang antar dompet miliknya sendiri. Ciri: kata 'transfer'/'tf'/'pindah saldo'/'mutasi' ditambah kata 'dari ... ke ...' atau dua nama dompet. Contoh: 'transfer dari bri ke tunai sebesar 500 ribu dengan admin 5k', 'tf 100rb dari dana ke bca'. Jangan samakan dengan terima transferan dari orang lain (itu INCOME).
 
 ## ATURAN KATEGORI
 - Makanan      : semua makanan & minuman, termasuk kopi, jajanan, delivery

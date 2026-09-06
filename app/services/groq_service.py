@@ -13,7 +13,7 @@ client = AsyncGroq(api_key=settings.GROQ_API_KEY) if settings.GROQ_API_KEY else 
 
 @dataclass
 class TransactionResult:
-    type: str           # "INCOME" atau "EXPENSE"
+    type: str           # "INCOME", "EXPENSE", "CORRECTION", atau "TRANSFER"
     amount: float
     description: str
     category: str
@@ -22,6 +22,9 @@ class TransactionResult:
     raw_text: str
     is_valid: bool
     reason: str
+    source_wallet: str | None = None
+    destination_wallet: str | None = None
+    fee: float = 0.0
 
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
@@ -124,6 +127,10 @@ async def analyze_text_transaction(text: str) -> TransactionResult:
 
         amount_val = data.get("amount")
         amount = float(amount_val) if amount_val is not None else 0.0
+        try:
+            fee = float(data.get("fee", 0) or 0)
+        except (TypeError, ValueError):
+            fee = 0.0
 
         return TransactionResult(
             type=data.get("type", "EXPENSE"),
@@ -135,6 +142,9 @@ async def analyze_text_transaction(text: str) -> TransactionResult:
             raw_text=text,
             is_valid=data.get("is_valid", True),
             reason=data.get("reason", ""),
+            source_wallet=data.get("source_wallet") or None,
+            destination_wallet=data.get("destination_wallet") or None,
+            fee=fee,
         )
 
     except Exception as e:
