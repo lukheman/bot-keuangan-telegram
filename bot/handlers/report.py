@@ -92,11 +92,20 @@ async def ringkasan_hari_ini(update: Update, context: ContextTypes.DEFAULT_TYPE)
         reply_markup = None
         
     try:
-        transactions, inc, exp = await get_daily_summary(
+        transactions, inc, exp, expense_by_category = await get_daily_summary(
             update.effective_user.id,
             await get_user_local_date(update.effective_user.id),
         )
-        msg = _format_transactions(transactions, inc, exp, "Ringkasan Hari Ini")
+        msg = _format_transactions(
+            transactions,
+            inc,
+            exp,
+            "Ringkasan Hari Ini",
+            include_date=True,
+            include_balance=True,
+            expense_by_category=expense_by_category,
+            group_by_date=True,
+        )
         await _send_report(reply_func, msg, reply_markup, overflow_func)
     except Exception as e:
         logger.error(f"Error ringkasan_hari_ini: {str(e)}", exc_info=True)
@@ -117,11 +126,20 @@ async def ringkasan_minggu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = None
         
     try:
-        transactions, inc, exp = await get_weekly_summary(
+        transactions, inc, exp, expense_by_category = await get_weekly_summary(
             update.effective_user.id,
             await get_user_local_date(update.effective_user.id),
         )
-        msg = _format_transactions(transactions, inc, exp, "Ringkasan 7 Hari Terakhir", include_date=True)
+        msg = _format_transactions(
+            transactions,
+            inc,
+            exp,
+            "Ringkasan 7 Hari Terakhir",
+            include_date=True,
+            include_balance=True,
+            expense_by_category=expense_by_category,
+            group_by_date=True,
+        )
         await _send_report(reply_func, msg, reply_markup, overflow_func)
     except Exception as e:
         logger.error(f"Error ringkasan_minggu: {str(e)}", exc_info=True)
