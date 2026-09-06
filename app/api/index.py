@@ -64,7 +64,8 @@ async def bot_info():
 
 @app.get("/api/cron/daily-report")
 async def cron_daily_report(request: Request):
-    """Dipicu Vercel Cron tiap jam. Mengirim laporan ke user yang sudah jam 8 malam lokal.
+    """Dipicu Vercel Cron sekali sehari (12:00 UTC = 20:00 WITA).
+    Mengirim laporan ke user yang sudah jam 8 malam waktu lokalnya.
 
     Amankan dengan env CRON_SECRET (kirim sebagai ?secret= atau header Authorization).
     """
