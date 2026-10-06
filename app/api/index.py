@@ -318,6 +318,8 @@ async def dashboard(request: Request):
                     "wallets": wallets,
                     "income_categories": income_categories,
                     "expense_categories": expense_categories,
+                    "request_month": today.month,
+                    "request_year": today.year,
                 }
             )
             
@@ -329,6 +331,50 @@ async def logout():
     response = RedirectResponse(url="/login")
     response.delete_cookie("auth_token")
     return response
+
+@app.get("/api/reports/monthly")
+async def download_monthly_report(request: Request, year: int | None = None, month: int | None = None):
+    """Unduh laporan keuangan satu bulan sebagai file JSON.
+
+    Contoh: /api/reports/monthly?year=2026&month=10
+    Tanpa parameter -> bulan berjalan menurut zona waktu user.
+    """
+    from fastapi.responses import Response as FastAPIResponse
+
+    token = request.cookies.get("auth_token")
+    if not token:
+        return RedirectResponse(url="/login")
+
+    try:
+        payload = jwt.decode(token, settings.TELEGRAM_TOKEN, algorithms=["HS256"])
+        telegram_id = payload.get("telegram_id")
+
+        async with AsyncSessionLocal() as session:
+            user = (await session.execute(select(User).where(User.telegram_id == telegram_id))).scalar_one_or_none()
+            if not user:
+                return RedirectResponse(url="/login")
+            today = local_now(user.timezone).date()
+
+        target_year = year or today.year
+        target_month = month or today.month
+        if not 1 <= target_month <= 12:
+            return FastAPIResponse(status_code=400, content="Bulan harus 1-12")
+
+        from app.services.report_service import get_monthly_export
+
+        data = await get_monthly_export(telegram_id, target_year, target_month)
+        if data is None:
+            return FastAPIResponse(status_code=404, content="User tidak ditemukan")
+
+        body = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+        filename = f"laporan-{target_year}-{target_month:02d}.json"
+        return FastAPIResponse(
+            content=body,
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except jwt.InvalidTokenError:
+        return RedirectResponse(url="/login")
 
 @app.put("/api/transactions/{transaction_id}")
 async def update_transaction(transaction_id: str, request: Request):

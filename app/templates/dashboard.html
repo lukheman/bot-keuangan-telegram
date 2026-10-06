@@ -348,6 +348,22 @@
         </div>
 
         <div class="panel" style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 12px;">
+                <h2 style="margin: 0;">Unduh Laporan (JSON)</h2>
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <label style="color: var(--text-muted); font-size: 13px;">Bulan
+                        <input id="dlMonth" type="number" min="1" max="12" value="{{ request_month }}" style="width: 70px; padding: 8px; border-radius: 7px; border: 1px solid var(--border); margin-left: 4px;">
+                    </label>
+                    <label style="color: var(--text-muted); font-size: 13px;">Tahun
+                        <input id="dlYear" type="number" min="2000" max="2100" value="{{ request_year }}" style="width: 90px; padding: 8px; border-radius: 7px; border: 1px solid var(--border); margin-left: 4px;">
+                    </label>
+                    <button class="btn btn-primary" onclick="downloadReport()">⬇️ Unduh JSON</button>
+                </div>
+            </div>
+            <p style="color: var(--text-muted); font-size: 13px; margin: 0;">Berisi ringkasan, rekap per kategori, dan seluruh transaksi bulan tersebut.</p>
+        </div>
+
+        <div class="panel" style="margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 style="margin: 0;">Manajemen Dompet</h2>
                 <button class="btn btn-success" onclick="openAddWalletModal()">
@@ -572,6 +588,13 @@
             } catch (error) {
                 alert('Terjadi kesalahan jaringan');
             }
+        }
+
+        async function downloadReport() {
+            const month = document.getElementById('dlMonth').value;
+            const year = document.getElementById('dlYear').value;
+            if (!month || month < 1 || month > 12 || !year) return alert('Bulan harus 1-12 dan tahun harus diisi');
+            window.location.href = `/api/reports/monthly?year=${year}&month=${month}`;
         }
 
         async function saveWallet() {

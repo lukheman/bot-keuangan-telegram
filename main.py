@@ -26,6 +26,7 @@ from bot.handlers.report import (
     ringkasan_hari_ini,
     ringkasan_minggu,
     ringkasan_bulan,
+    unduh_bulan,
     atur_laporan_harian,
     laporan_harian_job,
 )
@@ -49,6 +50,7 @@ BOT_COMMANDS = [
     BotCommand("saldo", "Cek daftar dompet & saldo"),
     BotCommand("dompet", "Cek daftar dompet & saldo"),
     BotCommand("budget", "Atur budget bulanan"),
+    BotCommand("unduh", "Unduh laporan bulanan (JSON)"),
     BotCommand("laporan_harian", "Notifikasi laporan otomatis jam 8 malam"),
     BotCommand("register", "Daftarkan akun"),
     BotCommand("akun", "Info akun"),
@@ -71,6 +73,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/start - Mulai bot\n"
         "/saldo - Cek daftar dompet & saldo\n"
         "/budget [kategori] [nominal] - Atur budget bulanan\n"
+        "/unduh [bulan] [tahun] - Unduh laporan bulanan (JSON)\n"
         "/laporan_harian [on|off] - Notifikasi laporan otomatis jam 8 malam\n"
         "/menu - Tampilkan menu interaktif"
     )
@@ -87,6 +90,7 @@ def create_app():
     app.add_handler(CommandHandler("login_web", login_web))
     
     app.add_handler(CommandHandler("budget", kelola_budget))
+    app.add_handler(CommandHandler("unduh", unduh_bulan))
     app.add_handler(CommandHandler("laporan_harian", atur_laporan_harian))
 
     # Scheduler laporan otomatis jam 8 malam (aktif di proses long-running:
@@ -111,6 +115,7 @@ def create_app():
     app.add_handler(CallbackQueryHandler(ringkasan_hari_ini, pattern="^laporan_hari$"))
     app.add_handler(CallbackQueryHandler(ringkasan_minggu, pattern="^laporan_minggu$"))
     app.add_handler(CallbackQueryHandler(ringkasan_bulan, pattern="^laporan_bulan$"))
+    app.add_handler(CallbackQueryHandler(unduh_bulan, pattern="^laporan_unduh$"))
     
     app.add_handler(interactive_rename_wallet_conv)
     

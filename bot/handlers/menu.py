@@ -230,6 +230,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📅 Hari Ini", callback_data="laporan_hari"), InlineKeyboardButton("📆 Minggu Ini", callback_data="laporan_minggu")],
             [InlineKeyboardButton("📊 Bulan Ini", callback_data="laporan_bulan")],
             [InlineKeyboardButton("🎯 Budget Bulan Ini", callback_data="menu_budget")],
+            [InlineKeyboardButton("⬇️ Unduh Bulan Ini (JSON)", callback_data="laporan_unduh")],
             [InlineKeyboardButton("🔙 Kembali", callback_data="menu_utama")]
         ]
         await query.edit_message_text(
@@ -293,6 +294,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Atau kirim 📸 foto struk.\n\n"
             "*💼 Dompet* — `/saldo`\n"
             "*🎯 Budget* — `/budget makanan 1jt`\n"
+            "*⬇️ Unduh laporan* — `/unduh 10 2026` (JSON) atau tombol di menu 📊 Laporan\n"
             "*🌙 Notif harian* — otomatis jam 8 malam, atur di menu 🌙 Notif\n"
             "*🌐 Dashboard web* — via menu 👤 Akun",
             parse_mode="Markdown",

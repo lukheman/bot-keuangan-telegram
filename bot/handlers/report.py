@@ -1,3 +1,5 @@
+import io
+import json
 from collections import defaultdict
 from functools import partial
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -5,7 +7,7 @@ from telegram.ext import ContextTypes
 from sqlalchemy import select
 from app.core.database import AsyncSessionLocal
 from app.core.timezone import local_now
-from app.services.report_service import get_daily_summary, get_weekly_summary, get_monthly_summary, get_user_local_date
+from app.services.report_service import get_daily_summary, get_weekly_summary, get_monthly_summary, get_monthly_export, get_user_local_date
 from app.models import TransactionType, User
 import logging
 
@@ -195,6 +197,81 @@ async def ringkasan_bulan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error ringkasan_bulan: {str(e)}", exc_info=True)
         await reply_func(f"⚠️ Terjadi error: {str(e)}")
+
+
+def _parse_month_year_args(args, today):
+    """Parse argumen [bulan] [tahun] -> (month, year). Default bulan/tahun berjalan."""
+    target_month, target_year = today.month, today.year
+    if args:
+        try:
+            target_month = int(args[0])
+            if len(args) > 1:
+                target_year = int(args[1])
+            if target_month < 1 or target_month > 12:
+                raise ValueError()
+        except ValueError:
+            return None, None
+    return target_month, target_year
+
+
+async def unduh_bulan(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Kirim laporan keuangan bulan tertentu sebagai file JSON.
+
+    Cara pakai:
+    - /unduh → bulan berjalan
+    - /unduh 10 → Oktober tahun berjalan
+    - /unduh 10 2026 → Oktober 2026
+    - Tombol "⬇️ Unduh Bulan Ini (JSON)" di menu laporan
+    """
+    from_callback = bool(update.callback_query)
+    if from_callback:
+        await update.callback_query.answer()
+        today = await get_user_local_date(update.effective_user.id)
+        target_month, target_year = today.month, today.year
+        status_msg = await update.callback_query.message.reply_text(
+            "⏳ Menyiapkan file JSON..."
+        )
+    else:
+        today = await get_user_local_date(update.effective_user.id)
+        target_month, target_year = _parse_month_year_args(context.args or [], today)
+        if target_month is None:
+            await update.message.reply_text(
+                "⚠️ Format bulan/tahun salah!\nContoh: `/unduh 10 2026`",
+                parse_mode="Markdown",
+            )
+            return
+        status_msg = await update.message.reply_text("⏳ Menyiapkan file JSON...")
+
+    try:
+        logger.info(
+            f"User {update.effective_user.id} mengunduh laporan {target_month}/{target_year}"
+        )
+        data = await get_monthly_export(
+            update.effective_user.id, target_year, target_month
+        )
+        if data is None:
+            await status_msg.edit_text("Anda belum memiliki transaksi.")
+            return
+
+        payload = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+        filename = f"laporan-{target_year}-{target_month:02d}.json"
+        caption = (
+            f"📥 *Laporan {target_month}/{target_year}*\n"
+            f"{data['meta']['transaction_count']} transaksi | "
+            f"masuk Rp{data['summary']['total_income']:,.0f} | "
+            f"keluar Rp{data['summary']['total_expense']:,.0f}"
+        )
+        await context.bot.send_document(
+            chat_id=update.effective_chat.id,
+            document=io.BytesIO(payload),
+            filename=filename,
+            caption=caption,
+            parse_mode="Markdown",
+        )
+        await status_msg.delete()
+    except Exception as e:
+        logger.error(f"Error unduh_bulan: {str(e)}", exc_info=True)
+        await status_msg.edit_text(f"⚠️ Terjadi error: {str(e)}")
 
 
 def _is_auto_report_due(user) -> bool:
