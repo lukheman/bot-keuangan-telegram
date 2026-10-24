@@ -693,3 +693,53 @@ async def hermes_ringkasan(request: Request, telegram_id: int, periode: str = "h
               "date": t.local_created_at.date().isoformat() if getattr(t, "local_created_at", None) else None} for t in txs[:50]]
     return {"status": "success", "periode": label, "total_income": masuk, "total_expense": keluar,
             "balance": masuk - keluar, "count": len(txs), "transactions": items}
+
+
+@app.get("/api/hermes/transaksi")
+async def hermes_transaksi(request: Request, telegram_id: int, wallet: str = "", limit: int = 50, min_amount: float = 0):
+    import traceback as _tb
+    if not _check_hermes_key(request):
+        return Response(status_code=401, content="Unauthorized: HERMES_API_KEY salah / belum diset")
+    try:
+        from app.core.database import AsyncSessionLocal as _Session
+        from app.models import User as _User, Transaction as _Tx
+        from sqlalchemy import select as _select, desc as _desc
+        from sqlalchemy.orm import joinedload as _jl
+        from app.core.timezone import to_local_datetime as _to_local
+        limit = max(1, min(limit, 200))
+        async with _Session() as session:
+            user = (await session.execute(_select(_User).where(_User.telegram_id == telegram_id))).scalar_one_or_none()
+            if not user:
+                return Response(status_code=404, content="User tidak ditemukan")
+            stmt = (_select(_Tx).options(_jl(_Tx.category), _jl(_Tx.wallet))
+                    .where(_Tx.user_id == user.id).order_by(_desc(_Tx.created_at)))
+            rows = (await session.execute(stmt)).scalars().all()
+            out = []
+            for t in rows:
+                try:
+                    wname = t.wallet.name if getattr(t, "wallet", None) else ""
+                    if wallet and wallet.strip().lower() not in wname.lower():
+                        continue
+                    amt = float(t.amount)
+                    if amt < min_amount:
+                        continue
+                    try:
+                        ldt = _to_local(t.created_at, user.timezone)
+                        dstr = ldt.date().isoformat()
+                    except Exception:
+                        dstr = None
+                    out.append({"id": str(t.id), "amount": amt,
+                                "type": t.type.value if hasattr(t.type, "value") else str(t.type),
+                                "description": t.description,
+                                "category": t.category.name if getattr(t, "category", None) else "Lainnya",
+                                "wallet": wname, "date": dstr})
+                    if len(out) >= limit:
+                        break
+                except Exception:
+                    continue
+            out_sorted = sorted(out, key=lambda x: x["amount"], reverse=True)
+            return {"status": "success", "telegram_id": telegram_id, "filter_wallet": wallet,
+                    "count": len(out_sorted), "transactions": out_sorted}
+    except Exception as e:
+        _tb.print_exc()
+        return Response(status_code=500, content=f"hermes/transaksi error: {e}")
