@@ -588,3 +588,108 @@ async def delete_wallet(wallet_id: str, request: Request):
             return {"status": "success"}
     except Exception as e:
         return Response(status_code=400)
+
+
+# ================= HERMES API (API key, buat asisten) =================
+def _check_hermes_key(request: Request) -> bool:
+    from app.core.config import settings as _s
+    key = _s.HERMES_API_KEY
+    if not key:
+        return False
+    given = request.headers.get("x-api-key", "") or request.query_params.get("api_key", "")
+    auth = request.headers.get("authorization", "")
+    if auth.lower().startswith("bearer "):
+        given = auth[7:].strip() or given
+    return given == key
+
+
+@app.get("/api/hermes/saldo")
+async def hermes_saldo(request: Request, telegram_id: int):
+    if not _check_hermes_key(request):
+        return Response(status_code=401, content="Unauthorized: HERMES_API_KEY salah / belum diset")
+    from app.core.database import AsyncSessionLocal as _Session
+    from app.models import User as _User, Wallet as _Wallet
+    from sqlalchemy import select as _select
+    async with _Session() as session:
+        user = (await session.execute(_select(_User).where(_User.telegram_id == telegram_id))).scalar_one_or_none()
+        if not user:
+            return {"status": "success", "telegram_id": telegram_id, "wallets": [], "total_balance": 0}
+        wallets = (await session.execute(_select(_Wallet).where(_Wallet.user_id == user.id))).scalars().all()
+        data = [{"id": str(w.id), "name": w.name, "balance": float(w.balance), "is_primary": w.is_primary} for w in wallets]
+        return {"status": "success", "telegram_id": telegram_id, "wallets": data, "total_balance": sum(d["balance"] for d in data)}
+
+
+@app.post("/api/hermes/catet")
+async def hermes_catet(request: Request):
+    if not _check_hermes_key(request):
+        return Response(status_code=401, content="Unauthorized: HERMES_API_KEY salah / belum diset")
+    import decimal as _decimal
+    from app.services.transaction_service import record_transaction as _record
+    from app.models.category import TransactionType as _TxType
+    try:
+        body = await request.json()
+    except Exception:
+        return Response(status_code=400, content="Body harus JSON")
+    try:
+        telegram_id = int(body.get("telegram_id"))
+        raw_type = str(body.get("type", "")).strip().upper()
+        amount = _decimal.Decimal(str(body.get("amount")))
+        description = str(body.get("description", "")).strip()
+        category = (body.get("category") or None)
+        wallet = (body.get("wallet") or None)
+    except Exception:
+        return Response(status_code=400, content="Field wajib: telegram_id(int), type, amount")
+    if raw_type in ("INCOME", "MASUK", "PEMASUKAN", "IN"):
+        tx_type = _TxType.INCOME
+    elif raw_type in ("EXPENSE", "KELUAR", "PENGELUARAN", "OUT", "BELANJA"):
+        tx_type = _TxType.EXPENSE
+    else:
+        return Response(status_code=400, content="type harus INCOME atau EXPENSE")
+    if amount <= 0 or not description:
+        return Response(status_code=400, content="amount harus >0 dan description wajib diisi")
+
+    class _TU:
+        pass
+    tu = _TU()
+    tu.id = telegram_id
+    tu.username = str(body.get("username") or f"hermes-{telegram_id}")
+    tu.full_name = str(body.get("full_name") or tu.username)
+    try:
+        tx = await _record(tu, amount, description, tx_type, category, wallet)
+    except ValueError as e:
+        return Response(status_code=400, content=str(e))
+    except Exception as e:
+        return Response(status_code=500, content=f"Gagal catat: {e}")
+    return {"status": "success", "id": str(tx.id), "type": tx.type.value if hasattr(tx.type, "value") else str(tx.type),
+            "amount": float(tx.amount), "description": tx.description,
+            "category": getattr(tx, "category_name", None), "wallet": getattr(tx, "wallet_name", None)}
+
+
+@app.get("/api/hermes/ringkasan")
+async def hermes_ringkasan(request: Request, telegram_id: int, periode: str = "harian"):
+    if not _check_hermes_key(request):
+        return Response(status_code=401, content="Unauthorized: HERMES_API_KEY salah / belum diset")
+    import datetime as _dt
+    from app.services.report_service import get_daily_summary as _harian, get_weekly_summary as _mingguan, get_monthly_summary as _bulanan
+    from app.services.report_service import get_user_local_date as _tgl
+    p = periode.strip().lower()
+    today = await _tgl(telegram_id)
+    if p in ("harian", "hari", "daily", "today"):
+        txs, masuk, keluar = await _harian(telegram_id, today)
+        label = f"harian {today.isoformat()}"
+    elif p in ("mingguan", "minggu", "weekly"):
+        txs, masuk, keluar = await _mingguan(telegram_id, today)
+        label = f"mingguan sampai {today.isoformat()}"
+    else:
+        txs, masuk, keluar = await _bulanan(telegram_id, today.year, today.month)
+        label = f"bulanan {today.year}-{today.month:02d}"
+    if txs is None:
+        return Response(status_code=404, content="User tidak ditemukan")
+    items = [{"id": str(t.id), "amount": float(t.amount),
+              "type": t.type.value if hasattr(t.type, "value") else str(t.type),
+              "description": t.description,
+              "category": t.category.name if getattr(t, "category", None) else "Lainnya",
+              "wallet": t.wallet.name if getattr(t, "wallet", None) else None,
+              "date": t.local_created_at.date().isoformat() if getattr(t, "local_created_at", None) else None} for t in txs[:50]]
+    return {"status": "success", "periode": label, "total_income": masuk, "total_expense": keluar,
+            "balance": masuk - keluar, "count": len(txs), "transactions": items}

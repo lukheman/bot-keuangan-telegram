@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     PORT: int = 8443
     GOOGLE_SHEETS_CREDENTIALS_B64: str | None = None
     CRON_SECRET: str | None = None
+    HERMES_API_KEY: str | None = None
     DATABASE_URL: str = "sqlite+aiosqlite:///./finance_bot.db"
 
     @field_validator("DATABASE_URL", mode="before")
