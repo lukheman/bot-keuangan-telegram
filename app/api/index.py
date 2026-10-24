@@ -743,3 +743,65 @@ async def hermes_transaksi(request: Request, telegram_id: int, wallet: str = "",
     except Exception as e:
         _tb.print_exc()
         return Response(status_code=500, content=f"hermes/transaksi error: {e}")
+
+
+@app.put("/api/hermes/transaksi/{transaction_id}")
+async def hermes_update_transaksi(transaction_id: str, request: Request):
+    import traceback as _tb2
+    if not _check_hermes_key(request):
+        return Response(status_code=401, content="Unauthorized: HERMES_API_KEY salah / belum diset")
+    try:
+        import uuid as _uuid, decimal as _decimal
+        from app.core.database import AsyncSessionLocal as _Session
+        from app.models import User as _User, Transaction as _Tx, Category as _Cat, Wallet as _Wallet
+        from sqlalchemy import select as _select
+        body = await request.json()
+        async with _Session() as session:
+            tx_uuid = _uuid.UUID(transaction_id)
+            tx = (await session.execute(_select(_Tx).where(_Tx.id == tx_uuid))).scalar_one_or_none()
+            if not tx:
+                return Response(status_code=404, content="Transaksi tidak ditemukan")
+            user = await session.get(_User, tx.user_id)
+            if not user:
+                return Response(status_code=404, content="User tidak ditemukan")
+            old_amount = tx.amount
+            old_wallet = await session.get(_Wallet, tx.wallet_id) if tx.wallet_id else None
+            # sesuaikan saldo dompet lama dulu (kembalikan)
+            if old_wallet and old_amount is not None:
+                if str(tx.type) == "TransactionType.INCOME" or "INCOME" in str(tx.type):
+                    old_wallet.balance -= old_amount
+                else:
+                    old_wallet.balance += old_amount
+            # terapkan field baru bila ada
+            if "amount" in body and body["amount"] is not None:
+                tx.amount = _decimal.Decimal(str(body["amount"]))
+            if "description" in body and body["description"] is not None:
+                tx.description = str(body["description"]).strip() or tx.description
+            if "wallet" in body and body["wallet"]:
+                wname = str(body["wallet"]).strip()
+                w = (await session.execute(_select(_Wallet).where(_Wallet.user_id == user.id, _Wallet.name.ilike(wname)))).scalars().first()
+                if not w:
+                    return Response(status_code=400, content=f"Dompet '{wname}' tidak ditemukan")
+                tx.wallet_id = w.id
+            if "category" in body and body["category"]:
+                from app.models.category import TransactionType as _TT
+                cname = str(body["category"]).strip()
+                c = (await session.execute(_select(_Cat).where(_Cat.user_id == user.id, _Cat.name == cname, _Cat.type == tx.type))).scalars().first()
+                if not c:
+                    c = _Cat(user_id=user.id, name=cname, type=tx.type)
+                    session.add(c)
+                    await session.flush()
+                tx.category_id = c.id
+            # terapkan saldo dompet baru
+            new_wallet = await session.get(_Wallet, tx.wallet_id) if tx.wallet_id else None
+            if new_wallet and tx.amount is not None:
+                if str(tx.type) == "TransactionType.INCOME" or "INCOME" in str(tx.type):
+                    new_wallet.balance += tx.amount
+                else:
+                    new_wallet.balance -= tx.amount
+            await session.commit()
+            return {"status": "success", "id": str(tx.id), "old_amount": float(old_amount),
+                    "new_amount": float(tx.amount), "description": tx.description}
+    except Exception as e:
+        _tb2.print_exc()
+        return Response(status_code=500, content=f"hermes/update error: {e}")
