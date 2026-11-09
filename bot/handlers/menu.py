@@ -184,8 +184,8 @@ async def _tampilkan_notif(query, telegram_id: int):
     text = (
         "🌙 *Notifikasi Harian*\n\n"
         f"Status: {status}\n"
-        f"Dikirim tiap jam 8 malam waktu lokal ({user.timezone or DEFAULT_TZ}).\n"
-        "Isinya ringkasan pengeluaran hari itu. 🌙"
+        f"Dikirim tiap jam 12 malam (00:00) waktu lokal ({user.timezone or DEFAULT_TZ}).\n"
+        "Isinya ringkasan transaksi hari yang baru selesai. 🌙"
     )
     keyboard = [[toggle], [InlineKeyboardButton("🔙 Kembali", callback_data="menu_utama")]]
     await query.edit_message_text(text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -295,7 +295,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "*💼 Dompet* — `/saldo`\n"
             "*🎯 Budget* — `/budget makanan 1jt`\n"
             "*⬇️ Unduh laporan* — `/unduh 10 2026` (JSON) atau tombol di menu 📊 Laporan\n"
-            "*🌙 Notif harian* — otomatis jam 8 malam, atur di menu 🌙 Notif\n"
+            "*🌙 Notif harian* — otomatis jam 12 malam, atur di menu 🌙 Notif\n"
             "*🌐 Dashboard web* — via menu 👤 Akun",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="menu_utama")]])

@@ -51,7 +51,7 @@ BOT_COMMANDS = [
     BotCommand("dompet", "Cek daftar dompet & saldo"),
     BotCommand("budget", "Atur budget bulanan"),
     BotCommand("unduh", "Unduh laporan bulanan (JSON)"),
-    BotCommand("laporan_harian", "Notifikasi laporan otomatis jam 8 malam"),
+    BotCommand("laporan_harian", "Notifikasi laporan otomatis jam 12 malam"),
     BotCommand("register", "Daftarkan akun"),
     BotCommand("akun", "Info akun"),
     BotCommand("login_web", "Login dashboard web"),
@@ -74,7 +74,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/saldo - Cek daftar dompet & saldo\n"
         "/budget [kategori] [nominal] - Atur budget bulanan\n"
         "/unduh [bulan] [tahun] - Unduh laporan bulanan (JSON)\n"
-        "/laporan_harian [on|off] - Notifikasi laporan otomatis jam 8 malam\n"
+        "/laporan_harian [on|off] - Notifikasi laporan otomatis jam 12 malam\n"
         "/menu - Tampilkan menu interaktif"
     )
 
@@ -93,7 +93,7 @@ def create_app():
     app.add_handler(CommandHandler("unduh", unduh_bulan))
     app.add_handler(CommandHandler("laporan_harian", atur_laporan_harian))
 
-    # Scheduler laporan otomatis jam 8 malam (aktif di proses long-running:
+    # Scheduler laporan otomatis tengah malam (aktif di proses long-running:
     # polling maupun webhook server biasa; di serverless tidak persist).
     if app.job_queue is not None:
         app.job_queue.run_repeating(

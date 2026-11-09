@@ -1,6 +1,7 @@
 import io
 import json
 from collections import defaultdict
+from datetime import date, timedelta
 from functools import partial
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -13,8 +14,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 TELEGRAM_MESSAGE_LIMIT = 4096
-# Jam lokal user untuk pengiriman laporan harian otomatis (20:00).
-AUTO_REPORT_HOUR_LOCAL = 20
+# Laporan harian otomatis dikirim tiap tengah malam (00:00) waktu lokal user.
+AUTO_REPORT_HOUR_LOCAL = 0
 
 async def _send_report(reply_func, message, reply_markup=None, overflow_func=None):
     lines = message.splitlines(keepends=True)
@@ -274,22 +275,29 @@ async def unduh_bulan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await status_msg.edit_text(f"⚠️ Terjadi error: {str(e)}")
 
 
+def _report_date_for(now_local) -> date:
+    """Tanggal yang dilaporkan saat tengah malam: hari yang baru saja berakhir."""
+    return now_local.date() - timedelta(days=1)
+
+
 def _is_auto_report_due(user) -> bool:
-    """True bila user belum menerima laporan hari ini dan waktu lokalnya sudah lewat jam kirim."""
+    """True bila laporan hari yang baru berakhir belum dikirim ke user."""
     if not user.daily_report_enabled:
         return False
     now_local = local_now(user.timezone)
-    today = now_local.date()
-    if user.last_daily_report_at is not None and user.last_daily_report_at >= today:
+    if now_local.hour < AUTO_REPORT_HOUR_LOCAL:
         return False
-    return now_local.hour >= AUTO_REPORT_HOUR_LOCAL
+    report_date = _report_date_for(now_local)
+    if user.last_daily_report_at is not None and user.last_daily_report_at >= report_date:
+        return False
+    return True
 
 
 async def kirim_laporan_harian_otomatis(bot) -> dict:
-    """Kirim laporan hari ini ke semua user yang waktunya tiba. Mengembalikan rekap hasil.
+    """Kirim laporan hari yang baru berakhir ke semua user yang waktunya tiba.
 
-    Aman dipanggil berulang (cron tiap 15 menit / job polling): user yang sudah
-    menerima laporan hari ini dilewati lewat `last_daily_report_at`.
+    Aman dipanggil berulang (cron / job polling): user yang sudah menerima
+    laporan untuk tanggal tersebut dilewati lewat `last_daily_report_at`.
     """
     hasil = {"terkirim": 0, "dilewati": 0, "gagal": 0}
     async with AsyncSessionLocal() as session:
@@ -303,23 +311,23 @@ async def kirim_laporan_harian_otomatis(bot) -> dict:
                 hasil["dilewati"] += 1
                 continue
             try:
-                today = local_now(user.timezone).date()
+                report_date = _report_date_for(local_now(user.timezone))
                 transactions, inc, exp, expense_by_category = await get_daily_summary(
-                    user.telegram_id, today
+                    user.telegram_id, report_date
                 )
                 if not transactions:
                     logger.info(f"Laporan otomatis dilewati (tanpa transaksi): {user.telegram_id}")
-                    user.last_daily_report_at = today
+                    user.last_daily_report_at = report_date
                     await session.commit()
                     hasil["dilewati"] += 1
                     continue
                 msg = (
-                    "🌙 *Laporan Pengeluaran Hari Ini (Otomatis)*\n\n"
+                    "🌙 *Laporan Harian Otomatis*\n\n"
                     + _format_transactions(
                         transactions,
                         inc,
                         exp,
-                        "Ringkasan Hari Ini",
+                        f"Ringkasan {report_date.strftime('%d %b %Y')}",
                         include_date=True,
                         include_balance=True,
                         expense_by_category=expense_by_category,
@@ -327,7 +335,7 @@ async def kirim_laporan_harian_otomatis(bot) -> dict:
                     )
                 )
                 await _send_report(partial(bot.send_message, user.telegram_id), msg)
-                user.last_daily_report_at = today
+                user.last_daily_report_at = report_date
                 await session.commit()
                 hasil["terkirim"] += 1
                 logger.info(f"Laporan otomatis terkirim ke {user.telegram_id}")
@@ -345,7 +353,7 @@ async def laporan_harian_job(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def atur_laporan_harian(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Command /laporan_harian: lihat status atau aktif/nonaktifkan notifikasi jam 8 malam.
+    """Command /laporan_harian: lihat status atau aktif/nonaktifkan notifikasi jam 12 malam.
 
     - /laporan_harian → tampilkan status
     - /laporan_harian on → aktifkan
@@ -368,7 +376,8 @@ async def atur_laporan_harian(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text(
                 "🌙 *Laporan Harian Otomatis*\n\n"
                 f"Status: {status}\n"
-                f"Dikirim setiap jam 8 malam waktu lokal ({user.timezone}).\n\n"
+                f"Dikirim setiap jam 12 malam (00:00) waktu lokal ({user.timezone}).\n"
+                "Isinya ringkasan transaksi hari yang baru selesai.\n\n"
                 "Ketik `/laporan_harian on` untuk mengaktifkan atau "
                 "`/laporan_harian off` untuk mematikan.",
                 parse_mode="Markdown",
@@ -379,7 +388,7 @@ async def atur_laporan_harian(update: Update, context: ContextTypes.DEFAULT_TYPE
             await session.commit()
             await update.message.reply_text(
                 "✅ Laporan harian otomatis *diaktifkan*. "
-                "Bot akan mengirim ringkasan setiap jam 8 malam.",
+                "Bot akan mengirim ringkasan setiap jam 12 malam (00:00).",
                 parse_mode="Markdown",
             )
         elif args[0] in ("off", "mati", "nonaktif", "tidak", "0"):
