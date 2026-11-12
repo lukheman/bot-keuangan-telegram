@@ -5,6 +5,8 @@ from app.models.transaction import Transaction
 from app.models.recurring import RecurringTransaction
 from app.models.wallet import Wallet
 from app.models.budget import Budget
+from app.models.pending import PendingTransaction
+from app.models.ux_event import UxEvent
 
 __all__ = [
     "Base",
@@ -15,5 +17,7 @@ __all__ = [
     "Transaction",
     "RecurringTransaction",
     "Wallet",
-    "Budget"
+    "Budget",
+    "PendingTransaction",
+    "UxEvent",
 ]

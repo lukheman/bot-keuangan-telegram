@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str | None = None
     GOOGLE_SHEET_ID: str | None = None
     WEBHOOK_URL: str | None = None
+    WEBAPP_BASE_URL: str | None = None
     PORT: int = 8443
     GOOGLE_SHEETS_CREDENTIALS_B64: str | None = None
     CRON_SECRET: str | None = None

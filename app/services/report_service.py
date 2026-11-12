@@ -1,12 +1,37 @@
 import calendar
+import csv
+import io
 from datetime import date, timedelta
 from typing import Tuple, List, Optional
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from app.core.database import AsyncSessionLocal
 from app.models import Category, User, Transaction, TransactionType, Wallet
 from app.core.timezone import local_now, to_local_datetime
+
+
+async def sum_wallet_balance(session: AsyncSession, user_id) -> float:
+    """Total saldo semua dompet milik user (dalam sesi yang sudah ada)."""
+    total = (
+        await session.execute(
+            select(func.coalesce(func.sum(Wallet.balance), 0)).where(
+                Wallet.user_id == user_id
+            )
+        )
+    ).scalar_one()
+    return float(total)
+
+
+async def get_total_balance(telegram_id: int) -> float:
+    """Total saldo semua dompet milik user berdasarkan telegram_id."""
+    async with AsyncSessionLocal() as session:
+        user = (
+            await session.execute(select(User).where(User.telegram_id == telegram_id))
+        ).scalar_one_or_none()
+        if not user:
+            return 0.0
+        return await sum_wallet_balance(session, user.id)
 
 async def get_user_local_date(telegram_id: int) -> date:
     async with AsyncSessionLocal() as session:
@@ -64,7 +89,8 @@ async def get_daily_summary(telegram_id: int, target_date: date):
     return await get_summary_with_category(telegram_id, target_date, target_date)
 
 async def get_weekly_summary(telegram_id: int, end_date: date):
-    start_date = end_date - timedelta(days=7)
+    # Inklusif: hari ini + 6 hari sebelumnya = 7 hari.
+    start_date = end_date - timedelta(days=6)
     return await get_summary_with_category(telegram_id, start_date, end_date)
 
 async def get_monthly_summary(telegram_id: int, year: int, month: int):
@@ -155,3 +181,31 @@ async def get_monthly_export(telegram_id: int, year: int, month: int) -> dict | 
         "income_by_category": _by_category("INCOME"),
         "transactions": transactions,
     }
+
+
+def build_csv_report(data: dict) -> bytes:
+    """Ubah data ekspor bulanan menjadi CSV ramah Excel (UTF-8 BOM)."""
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer)
+    writer.writerow(
+        ["Tanggal", "Waktu", "Tipe", "Nominal", "Kategori", "Dompet", "Deskripsi"]
+    )
+
+    for item in data.get("transactions", []):
+        datetime_text = str(item.get("datetime") or "")
+        waktu = datetime_text[11:16] if len(datetime_text) >= 16 else ""
+        writer.writerow(
+            [
+                item.get("date", ""),
+                waktu,
+                item.get("type", ""),
+                item.get("amount", 0),
+                item.get("category", ""),
+                item.get("wallet") or "",
+                item.get("description") or "",
+            ]
+        )
+
+    # BOM membantu Excel membaca karakter Indonesia dengan benar.
+    return buffer.getvalue().encode("utf-8-sig")
+

@@ -1,8 +1,9 @@
 import uuid
 from datetime import date
+from decimal import Decimal
 from typing import List, Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import BigInteger, Boolean, Date, String
+from sqlalchemy import BigInteger, Boolean, Date, Numeric, String
 from app.models.base import BaseModel
 
 class User(BaseModel):
@@ -14,13 +15,22 @@ class User(BaseModel):
     currency: Mapped[str] = mapped_column(String(10), default="IDR")
     timezone: Mapped[str] = mapped_column(String(50), default="Asia/Makassar")
     daily_report_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     last_daily_report_at: Mapped[Optional[date]] = mapped_column(Date, nullable=True, default=None)
+    # UX-053: personalisasi tanpa memaksa mengubah nama akun Telegram.
+    nickname: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default=None)
+    savings_target: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(15, 2), nullable=True, default=None
+    )
 
     # Relationships (menggunakan string quotes untuk menghindari circular import)
     categories: Mapped[List["Category"]] = relationship("Category", back_populates="user", cascade="all, delete-orphan")
     transactions: Mapped[List["Transaction"]] = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
     recurring_transactions: Mapped[List["RecurringTransaction"]] = relationship("RecurringTransaction", back_populates="user", cascade="all, delete-orphan")
     wallets: Mapped[List["Wallet"]] = relationship("Wallet", back_populates="user", cascade="all, delete-orphan")
+    pending_transactions: Mapped[List["PendingTransaction"]] = relationship(
+        "PendingTransaction", back_populates="user", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, telegram_id={self.telegram_id}, full_name='{self.full_name}')>"

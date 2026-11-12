@@ -203,6 +203,71 @@ async def delete_budget(telegram_id: int, category_name: str) -> str:
         return category_name_resolved
 
 
+async def get_budget_detail(telegram_id: int, category_id_hex: str) -> tuple[str, decimal.Decimal] | None:
+    """Ambil nama kategori dan limit budget berdasarkan category id."""
+    import uuid
+
+    try:
+        category_uuid = uuid.UUID(str(category_id_hex))
+    except (ValueError, AttributeError):
+        return None
+
+    async with AsyncSessionLocal() as session:
+        user = (
+            await session.execute(select(User).where(User.telegram_id == telegram_id))
+        ).scalar_one_or_none()
+        if not user:
+            return None
+        row = (
+            await session.execute(
+                select(Category.name, Budget.amount_limit)
+                .join(Budget, Budget.category_id == Category.id)
+                .where(
+                    Budget.user_id == user.id,
+                    Budget.category_id == category_uuid,
+                )
+            )
+        ).first()
+        if not row:
+            return None
+        return row[0], decimal.Decimal(row[1])
+
+
+async def delete_budget_by_id(telegram_id: int, category_id_hex: str) -> str:
+    """Hapus budget berdasarkan category id (tombol menu, bebas batas callback)."""
+    import uuid
+
+    try:
+        category_uuid = uuid.UUID(str(category_id_hex))
+    except (ValueError, AttributeError) as exc:
+        raise ValueError("Budget tidak ditemukan atau sudah dihapus.") from exc
+
+    async with AsyncSessionLocal() as session:
+        user = (
+            await session.execute(select(User).where(User.telegram_id == telegram_id))
+        ).scalar_one_or_none()
+        if not user:
+            raise ValueError("Akun tidak ditemukan. Kirim /start terlebih dahulu.")
+        row = (
+            await session.execute(
+                select(Budget, Category)
+                .join(Category, Budget.category_id == Category.id)
+                .where(
+                    Budget.user_id == user.id,
+                    Budget.category_id == category_uuid,
+                )
+            )
+        ).first()
+        if not row:
+            raise ValueError("Budget tidak ditemukan atau sudah dihapus.")
+        budget, category = row
+        name = category.name
+        await session.delete(budget)
+        await session.commit()
+        logger.info(f"Budget dihapus via id: user={telegram_id}, kategori={name}")
+        return name
+
+
 async def list_budgets_with_usage(telegram_id: int) -> tuple[list[dict], str]:
     """Daftar semua budget user beserta pemakaian bulan berjalan."""
     async with AsyncSessionLocal() as session:
@@ -229,6 +294,7 @@ async def list_budgets_with_usage(telegram_id: int) -> tuple[list[dict], str]:
             pct = float(spent / limit * 100) if limit > 0 else 0.0
             result.append(
                 {
+                    "category_id": category.id,
                     "category_name": category.name,
                     "limit": limit,
                     "spent": spent,

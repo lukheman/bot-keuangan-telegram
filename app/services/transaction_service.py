@@ -1,8 +1,10 @@
 import decimal
+import uuid
 from app.core.timezone import local_now
 from app.services.budget_service import get_budget_warning
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 from app.core.database import AsyncSessionLocal
 from app.models import User, Category, Transaction, TransactionType, Wallet
 import logging
@@ -61,12 +63,8 @@ async def get_or_create_category(session: AsyncSession, user_id, type_: Transact
 
 async def get_wallet_or_default(session: AsyncSession, user_id, wallet_name: str = None) -> Wallet:
     if wallet_name:
-        stmt = select(Wallet).where(
-            Wallet.user_id == user_id,
-            Wallet.name.ilike(wallet_name)
-        )
-        wallet = (await session.execute(stmt)).scalars().first()
-        
+        wallet = await find_wallet_by_name(session, user_id, wallet_name)
+
         if not wallet:
             raise ValueError(f"Dompet '{wallet_name}' tidak ditemukan. Silakan buat dompet terlebih dahulu melalui menu dompet.")
             
@@ -300,8 +298,7 @@ async def adjust_wallet_balance(telegram_user, target_balance: decimal.Decimal, 
         user = await get_or_create_user(session, telegram_user.id, telegram_user.username, telegram_user.full_name)
         
         if wallet_name:
-            stmt = select(Wallet).where(Wallet.user_id == user.id, Wallet.name.ilike(wallet_name))
-            wallet = (await session.execute(stmt)).scalars().first()
+            wallet = await find_wallet_by_name(session, user.id, wallet_name)
             if not wallet:
                 raise ValueError(f"Dompet '{wallet_name}' tidak ditemukan. Silakan buat dompet terlebih dahulu atau cek ejaannya.")
         else:
@@ -311,7 +308,9 @@ async def adjust_wallet_balance(telegram_user, target_balance: decimal.Decimal, 
                 stmt = select(Wallet).where(Wallet.user_id == user.id).order_by(Wallet.created_at)
                 wallet = (await session.execute(stmt)).scalars().first()
             if not wallet:
-                raise ValueError("Anda belum memiliki dompet sama sekali.")
+                raise ValueError(
+                    "Kamu belum punya dompet. Tambahkan dompet dulu lewat menu Dompet."
+                )
         
         diff = target_balance - wallet.balance
         if diff == 0:
@@ -332,3 +331,75 @@ async def adjust_wallet_balance(telegram_user, target_balance: decimal.Decimal, 
         category_name="Penyesuaian Saldo",
         wallet_name=resolved_wallet_name
     )
+
+
+async def undo_transaction(telegram_id: int, tx_id_hex: str) -> dict:
+    """Batalkan transaksi sederhana dan kembalikan saldo dompet.
+
+    Transfer dan biaya admin tidak didukung karena terdiri dari beberapa baris
+    transaksi yang saling terkait.
+    """
+    try:
+        tx_id = uuid.UUID(str(tx_id_hex))
+    except (ValueError, AttributeError) as exc:
+        raise ValueError("Transaksi tidak valid atau sudah dibatalkan.") from exc
+
+    async with AsyncSessionLocal() as session:
+        user = (
+            await session.execute(select(User).where(User.telegram_id == telegram_id))
+        ).scalar_one_or_none()
+        if not user:
+            raise ValueError("Akun tidak ditemukan. Kirim /start terlebih dahulu.")
+
+        tx = (
+            await session.execute(
+                select(Transaction)
+                .options(
+                    joinedload(Transaction.wallet),
+                    joinedload(Transaction.category),
+                )
+                .where(
+                    Transaction.id == tx_id,
+                    Transaction.user_id == user.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if not tx:
+            raise ValueError("Transaksi tidak ditemukan atau sudah dibatalkan.")
+
+        category_name = tx.category.name if tx.category else "Lainnya"
+        if category_name in ("Transfer", "Biaya Admin"):
+            raise ValueError(
+                "Transfer dan biaya admin tidak bisa dibatalkan dari tombol ini. "
+                "Catat penyesuaian saldo bila perlu."
+            )
+
+        wallet = tx.wallet
+        wallet_name = wallet.name if wallet else None
+        if wallet is not None:
+            if tx.type == TransactionType.INCOME:
+                wallet.balance -= tx.amount
+            else:
+                wallet.balance += tx.amount
+
+        info = {
+            "amount": tx.amount,
+            "description": tx.description or "",
+            "type": tx.type,
+            "category": category_name,
+            "wallet": wallet_name,
+            "sheet": {
+                "date": tx.date.isoformat(),
+                "type": "Pemasukan" if tx.type == TransactionType.INCOME else "Pengeluaran",
+                "amount": float(tx.amount),
+                "category": category_name,
+                "description": tx.description or "",
+                "wallet": wallet_name or "Utama",
+            },
+        }
+
+        await session.delete(tx)
+        await session.commit()
+
+    logger.info("Transaksi dibatalkan: user=%s, id=%s", telegram_id, tx_id)
+    return info

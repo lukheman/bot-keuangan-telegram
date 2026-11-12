@@ -163,7 +163,7 @@ async def telegram_auth(request: Request):
     params = dict(request.query_params)
     
     if not params.get("id"):
-        return HTMLResponse("<h1>Error: Data login tidak valid</h1>", status_code=400)
+        return HTMLResponse("<h1>Link login belum lengkap</h1>", status_code=400)
         
     username = params.get("username", "Pengguna")
     first_name = params.get("first_name", "")
@@ -187,7 +187,7 @@ async def telegram_auth(request: Request):
         <div class="card">
             <h1>✅ Login Berhasil!</h1>
             <p>Selamat datang, <b>{first_name} (@{username})</b>!</p>
-            <p>Akun Telegram Anda ({params.get('id')}) berhasil terhubung dengan Web App.</p>
+            <p>Akun Telegram kamu ({params.get('id')}) berhasil terhubung dengan Web App.</p>
         </div>
     </body>
     </html>
@@ -215,7 +215,7 @@ templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), '.
 async def token_auth(request: Request, response: Response):
     token = request.query_params.get("token")
     if not token:
-        return HTMLResponse("<h1>Error: Token tidak ditemukan</h1>", status_code=400)
+        return HTMLResponse("<h1>Link masuk tidak ditemukan</h1>", status_code=400)
         
     try:
         # Decode and verify the JWT
@@ -226,9 +226,9 @@ async def token_auth(request: Request, response: Response):
         redirect.set_cookie(key="auth_token", value=token, httponly=True, max_age=3600*24)
         return redirect
     except jwt.ExpiredSignatureError:
-        return HTMLResponse("<h1>Error: Token sudah kedaluwarsa</h1><p>Silakan minta token baru di bot Telegram Anda.</p>", status_code=400)
+        return HTMLResponse("<h1>Link masuk sudah kedaluwarsa</h1><p>Silakan minta link baru lewat menu Akun di bot Telegram.</p>", status_code=400)
     except jwt.InvalidTokenError:
-        return HTMLResponse("<h1>Error: Token tidak valid</h1>", status_code=400)
+        return HTMLResponse("<h1>Link masuk tidak dikenali</h1>", status_code=400)
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
@@ -601,6 +601,107 @@ def _check_hermes_key(request: Request) -> bool:
     if auth.lower().startswith("bearer "):
         given = auth[7:].strip() or given
     return given == key
+
+
+@app.get("/api/metrics/ux")
+async def ux_metrics_api(request: Request, weeks: int = 8):
+    """Metrik UX mingguan (JSON). Amankan dengan HERMES_API_KEY."""
+    if not _check_hermes_key(request):
+        return Response(
+            status_code=401,
+            content="Unauthorized: set HERMES_API_KEY lalu kirim ?api_key=... atau header x-api-key",
+        )
+    from app.services.ux_metrics_service import weekly_ux_metrics
+
+    return await weekly_ux_metrics(weeks)
+
+
+@app.get("/metrics", response_class=HTMLResponse)
+async def ux_metrics_page(request: Request, weeks: int = 8):
+    """Dashboard metrik UX mingguan sederhana untuk operator."""
+    if not _check_hermes_key(request):
+        return HTMLResponse(
+            "<h1>Akses ditolak</h1>"
+            "<p>Buka halaman ini dengan <code>?api_key=HERMES_API_KEY</code>.</p>",
+            status_code=401,
+        )
+
+    import html
+
+    from app.services.ux_metrics_service import weekly_ux_metrics
+
+    weeks = max(1, min(int(weeks), 26))
+    data = await weekly_ux_metrics(weeks)
+    api_key = request.query_params.get("api_key", "")
+    funnel = data["funnel"]
+    ai = data["ai"]
+    totals = data["totals"]
+
+    def ms(value):
+        return "—" if value is None else f"{value:,.0f} ms".replace(",", ".")
+
+    week_rows = []
+    for week in data["weeks"]:
+        events = week["events"]
+        week_rows.append(
+            "<tr>"
+            f"<td>{html.escape(week['week_start'])} – {html.escape(week['week_end'])}</td>"
+            f"<td>{events.get('onboarding_started', 0)}</td>"
+            f"<td>{events.get('onboarding_completed', 0)}</td>"
+            f"<td>{events.get('first_transaction', 0)}</td>"
+            f"<td>{events.get('fifth_transaction', 0)}</td>"
+            f"<td>{week['errors']}</td>"
+            f"<td>{week['ai_samples']}</td>"
+            f"<td>{ms(week['ai_avg_ms'])}</td>"
+            f"<td>{ms(week['ai_p95_ms'])}</td>"
+            "</tr>"
+        )
+
+    cards = [
+        ("Mulai onboarding", funnel["onboarding_started"]),
+        ("Selesai onboarding", f"{funnel['onboarding_completed']} ({funnel['completion_rate']}%)"),
+        ("Transaksi pertama", f"{funnel['first_transaction']} ({funnel['first_transaction_rate']}%)"),
+        ("Transaksi kelima", f"{funnel['fifth_transaction']} ({funnel['fifth_transaction_rate']}%)"),
+        ("Rata-rata AI", ms(ai["avg_ms"])),
+        ("AI P95", ms(ai["p95_ms"])),
+        ("Error", totals["errors"]),
+    ]
+    card_html = "".join(
+        f'<div class="card"><div class="label">{html.escape(label)}</div>'
+        f'<div class="value">{html.escape(str(value))}</div></div>'
+        for label, value in cards
+    )
+
+    return HTMLResponse(
+        f"""<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Metrik UX — Bot Keuangan</title>
+<style>
+  body {{ font-family: system-ui, sans-serif; background:#f6f7fb; color:#1f2937; margin:0; padding:24px; }}
+  h1 {{ margin:0 0 4px; }}
+  .meta {{ color:#6b7280; margin:0 0 20px; }}
+  .cards {{ display:flex; flex-wrap:wrap; gap:12px; margin-bottom:20px; }}
+  .card {{ background:#fff; border-radius:12px; padding:14px 18px; min-width:150px; box-shadow:0 1px 3px #0001; }}
+  .label {{ color:#6b7280; font-size:13px; }}
+  .value {{ font-size:22px; font-weight:700; margin-top:4px; }}
+  table {{ width:100%; border-collapse:collapse; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px #0001; }}
+  th, td {{ padding:10px 12px; text-align:left; border-bottom:1px solid #eef0f4; font-size:14px; }}
+  th {{ background:#eef2ff; color:#3730a3; }}
+  .note {{ color:#6b7280; font-size:13px; margin-top:16px; }}
+  code {{ background:#eef0f4; padding:2px 6px; border-radius:6px; }}
+</style></head><body>
+<h1>Metrik UX Mingguan</h1>
+<p class="meta">Periode {weeks} minggu terakhir · diperbarui {html.escape(data['generated_at'])} · zona {html.escape(data['timezone'])}</p>
+<div class="cards">{card_html}</div>
+<table>
+<thead><tr><th>Minggu</th><th>Mulai</th><th>Selesai</th><th>Tx pertama</th><th>Tx kelima</th><th>Error</th><th>AI sample</th><th>AI rata-rata</th><th>AI P95</th></tr></thead>
+<tbody>{''.join(week_rows)}</tbody>
+</table>
+<p class="note">Data mentah: <code>ux_events</code>. JSON: <a href="/api/metrics/ux?weeks={weeks}&amp;api_key={html.escape(api_key)}">/api/metrics/ux</a>.
+Transaksi tercatat: {totals['transactions_created']} pengguna.</p>
+</body></html>"""
+    )
 
 
 @app.get("/api/hermes/saldo")

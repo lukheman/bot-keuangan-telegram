@@ -621,7 +621,7 @@
         }
         
         async function deleteWallet(id) {
-            if (!confirm('Apakah Anda yakin ingin menghapus dompet ini? Semua transaksi terkait juga akan terhapus.')) return;
+            if (!confirm('Yakin ingin menghapus dompet ini? Semua transaksi terkait juga akan terhapus.')) return;
             try {
                 const res = await fetch(`/api/wallets/${id}`, { method: 'DELETE' });
                 if (res.ok) window.location.reload();

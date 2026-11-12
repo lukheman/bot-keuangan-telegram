@@ -35,7 +35,7 @@ async def analyze_transaction(image_path: str, caption: str = None) -> Transacti
 
     if not client:
         logger.error("GROQ_API_KEY belum dikonfigurasi.")
-        return TransactionResult("EXPENSE", 0, "", "Lainnya", "Utama", 0.0, "", False, "GROQ_API_KEY belum dikonfigurasi di .env")
+        return TransactionResult("EXPENSE", 0, "", "Lainnya", "Utama", 0.0, "", False, "Layanan pembaca transaksi belum siap. Coba lagi nanti.")
 
     try:
         base64_image = encode_image(image_path)
@@ -98,7 +98,7 @@ async def analyze_transaction(image_path: str, caption: str = None) -> Transacti
             confidence=0.0,
             raw_text="",
             is_valid=False,
-            reason=f"Gagal menganalisis (Groq): {str(e)}",
+            reason="Layanan pembaca transaksi sedang sibuk. Coba lagi sebentar.",
         )
 
 async def analyze_text_transaction(text: str) -> TransactionResult:
@@ -106,7 +106,7 @@ async def analyze_text_transaction(text: str) -> TransactionResult:
 
     if not client:
         logger.error("GROQ_API_KEY belum dikonfigurasi.")
-        return TransactionResult("EXPENSE", 0, "", "Lainnya", "Utama", 0.0, "", False, "GROQ_API_KEY belum dikonfigurasi")
+        return TransactionResult("EXPENSE", 0, "", "Lainnya", "Utama", 0.0, "", False, "Layanan pembaca transaksi belum siap. Coba lagi nanti.")
 
     try:
         response = await client.chat.completions.create(
@@ -152,5 +152,6 @@ async def analyze_text_transaction(text: str) -> TransactionResult:
         return TransactionResult(
             type="EXPENSE", amount=0, description="", category="Lainnya",
             wallet_name=None, confidence=0.0, raw_text=text,
-            is_valid=False, reason=f"Gagal menganalisis teks: {str(e)}"
+            is_valid=False,
+            reason="Layanan pembaca transaksi sedang sibuk. Coba lagi sebentar.",
         )

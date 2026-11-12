@@ -59,3 +59,57 @@ async def append_to_sheet(tx: Transaction):
     if not gc or not settings.GOOGLE_SHEET_ID:
         return
     await asyncio.to_thread(_append_to_sheet_sync, tx)
+
+
+def _amount_matches(sheet_value: str, amount: float) -> bool:
+    try:
+        return abs(float(str(sheet_value).replace(",", ".")) - float(amount)) < 0.01
+    except (TypeError, ValueError):
+        return False
+
+
+def _delete_from_sheet_sync(payload: dict) -> bool:
+    """Hapus satu baris transaksi yang cocok dengan payload.
+
+    Google Sheets belum punya ID transaksi, jadi pencocokan dilakukan pada
+    kombinasi tanggal, tipe, nominal, kategori, deskripsi, dan dompet.
+    """
+    if not gc or not settings.GOOGLE_SHEET_ID:
+        return False
+
+    try:
+        sh = gc.open_by_key(settings.GOOGLE_SHEET_ID)
+        worksheet = sh.sheet1
+        rows = worksheet.get_all_values()
+
+        for index, row in enumerate(rows[1:], start=2):
+            if len(row) < 6:
+                continue
+            row_date, row_type, row_amount, row_category, row_description, row_wallet = row[:6]
+            if row_date != payload.get("date"):
+                continue
+            if row_type != payload.get("type"):
+                continue
+            if row_category != payload.get("category"):
+                continue
+            if row_description != payload.get("description"):
+                continue
+            if row_wallet != payload.get("wallet"):
+                continue
+            if not _amount_matches(row_amount, payload.get("amount", 0)):
+                continue
+
+            worksheet.delete_rows(index)
+            logger.info("Baris transaksi dihapus dari Google Sheets: %s", payload)
+            return True
+    except Exception as e:
+        logger.error(f"Gagal menghapus baris Google Sheets: {e}", exc_info=True)
+
+    return False
+
+
+async def delete_from_sheet(payload: dict) -> bool:
+    """Hapus baris transaksi dari Google Sheets tanpa nge-block bot."""
+    if not gc or not settings.GOOGLE_SHEET_ID:
+        return False
+    return await asyncio.to_thread(_delete_from_sheet_sync, payload)

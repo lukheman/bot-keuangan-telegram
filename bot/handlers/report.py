@@ -8,14 +8,51 @@ from telegram.ext import ContextTypes
 from sqlalchemy import select
 from app.core.database import AsyncSessionLocal
 from app.core.timezone import local_now
-from app.services.report_service import get_daily_summary, get_weekly_summary, get_monthly_summary, get_monthly_export, get_user_local_date
+from app.services.report_service import (
+    build_csv_report,
+    get_daily_summary,
+    get_monthly_export,
+    get_monthly_summary,
+    get_total_balance,
+    get_user_local_date,
+    get_weekly_summary,
+    sum_wallet_balance,
+)
 from app.models import TransactionType, User
+from bot.utils.messages import GENERIC_ERROR, md, rupiah, zona_waktu
 import logging
 
 logger = logging.getLogger(__name__)
 TELEGRAM_MESSAGE_LIMIT = 4096
 # Laporan harian otomatis dikirim tiap tengah malam (00:00) waktu lokal user.
 AUTO_REPORT_HOUR_LOCAL = 0
+
+NAMA_BULAN = [
+    "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+    "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
+]
+
+
+def month_options(today: date, count: int = 6) -> list[tuple[int, int, str]]:
+    """Daftar (tahun, bulan, label) bulan terakhir, termasuk bulan berjalan."""
+    options: list[tuple[int, int, str]] = []
+    year, month = today.year, today.month
+    for _ in range(max(1, count)):
+        options.append((year, month, f"{NAMA_BULAN[month - 1]} {year}"))
+        month -= 1
+        if month == 0:
+            month = 12
+            year -= 1
+    return options
+
+def _error_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔁 Coba lagi", callback_data="menu_laporan")],
+            [InlineKeyboardButton("🏠 Menu", callback_data="menu_utama")],
+        ]
+    )
+
 
 async def _send_report(reply_func, message, reply_markup=None, overflow_func=None):
     lines = message.splitlines(keepends=True)
@@ -41,11 +78,14 @@ async def _send_report(reply_func, message, reply_markup=None, overflow_func=Non
             reply_markup=reply_markup if index == len(chunks) - 1 else None,
         )
 
-def _format_transactions(transactions, total_income, total_expense, title, include_date=False, include_balance=False, expense_by_category=None, group_by_date=False):
+def _format_transactions(transactions, total_income, total_expense, title, include_date=False, include_balance=False, expense_by_category=None, group_by_date=False, total_balance=None):
     if transactions is None:
-        return "Anda belum memiliki transaksi."
+        return "Belum ada transaksi."
     if not transactions:
-        return f"Tidak ada transaksi untuk {title.lower()}."
+        msg = f"Belum ada transaksi untuk {title.lower()}."
+        if include_balance and total_balance is not None:
+            msg += f"\n\n💼 *Total Saldo Dompet:* {rupiah(total_balance)}"
+        return msg
 
     msg = f"📊 *{title}*\n\n"
     if group_by_date:
@@ -64,24 +104,26 @@ def _format_transactions(transactions, total_income, total_expense, title, inclu
                     continue
                 msg += f"  - *{label}*\n"
                 for tx in type_transactions:
-                    description = f" - {tx.description}" if tx.description else ""
+                    description = f" - {md(tx.description)}" if tx.description else ""
                     transaction_time = tx.local_created_at.strftime('%H:%M')
-                    msg += f"    - `{transaction_time}` Rp{tx.amount:,.0f}{description}\n"
+                    msg += f"    - `{transaction_time}` {rupiah(tx.amount)}{description}\n"
     else:
         for tx in transactions:
             icon = "📈" if tx.type == TransactionType.INCOME else "📉"
             date_str = f"`{tx.date.strftime('%d %b')}` | " if include_date else ""
             transaction_time = tx.local_created_at.strftime('%H:%M')
-            msg += f"{date_str}`{transaction_time}` | {icon} Rp{tx.amount:,.0f} - {tx.description}\n"
+            msg += f"{date_str}`{transaction_time}` | {icon} {rupiah(tx.amount)} - {md(tx.description)}\n"
     
-    msg += f"\n📈 Total Pemasukan: Rp{total_income:,.0f}"
-    msg += f"\n📉 Total Pengeluaran: Rp{total_expense:,.0f}"
+    msg += f"\n📈 Total Pemasukan: {rupiah(total_income)}"
+    msg += f"\n📉 Total Pengeluaran: {rupiah(total_expense)}"
     if expense_by_category:
         msg += "\n\n📂 *Pengeluaran per Kategori:*"
         for category, total in expense_by_category.items():
-            msg += f"\n• {category}: Rp{total:,.0f}"
+            msg += f"\n• {md(category)}: {rupiah(total)}"
     if include_balance:
-        msg += f"\n💡 *Saldo:* Rp{(total_income - total_expense):,.0f}"
+        msg += f"\n💡 *Selisih periode:* {rupiah(total_income - total_expense)}"
+        if total_balance is not None:
+            msg += f"\n💼 *Total Saldo Dompet:* {rupiah(total_balance)}"
 
     return msg
 
@@ -104,6 +146,7 @@ async def ringkasan_hari_ini(update: Update, context: ContextTypes.DEFAULT_TYPE)
             update.effective_user.id,
             await get_user_local_date(update.effective_user.id),
         )
+        total_balance = await get_total_balance(update.effective_user.id)
         msg = _format_transactions(
             transactions,
             inc,
@@ -113,11 +156,12 @@ async def ringkasan_hari_ini(update: Update, context: ContextTypes.DEFAULT_TYPE)
             include_balance=True,
             expense_by_category=expense_by_category,
             group_by_date=True,
+            total_balance=total_balance,
         )
         await _send_report(reply_func, msg, reply_markup, overflow_func)
     except Exception as e:
-        logger.error(f"Error ringkasan_hari_ini: {str(e)}", exc_info=True)
-        await reply_func(f"⚠️ Terjadi error: {str(e)}")
+        logger.error(f"Error ringkasan_hari_ini: {e}", exc_info=True)
+        await reply_func(GENERIC_ERROR, reply_markup=_error_keyboard())
 
 async def ringkasan_minggu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"User {update.effective_user.id} meminta ringkasan minggu")
@@ -138,6 +182,7 @@ async def ringkasan_minggu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             update.effective_user.id,
             await get_user_local_date(update.effective_user.id),
         )
+        total_balance = await get_total_balance(update.effective_user.id)
         msg = _format_transactions(
             transactions,
             inc,
@@ -147,18 +192,35 @@ async def ringkasan_minggu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             include_balance=True,
             expense_by_category=expense_by_category,
             group_by_date=True,
+            total_balance=total_balance,
         )
         await _send_report(reply_func, msg, reply_markup, overflow_func)
     except Exception as e:
-        logger.error(f"Error ringkasan_minggu: {str(e)}", exc_info=True)
-        await reply_func(f"⚠️ Terjadi error: {str(e)}")
+        logger.error(f"Error ringkasan_minggu: {e}", exc_info=True)
+        await reply_func(GENERIC_ERROR, reply_markup=_error_keyboard())
 
 async def ringkasan_bulan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     today = await get_user_local_date(update.effective_user.id)
     target_month = today.month
     target_year = today.year
 
-    if context.args:
+    callback_data = update.callback_query.data if update.callback_query else ""
+    if callback_data.startswith("laporan_bulan_"):
+        try:
+            _, _, year_text, month_text = callback_data.split("_")
+            target_year = int(year_text)
+            target_month = int(month_text)
+            if target_month < 1 or target_month > 12:
+                raise ValueError()
+        except ValueError:
+            await update.callback_query.edit_message_text(
+                "⚠️ Bulan laporan belum dikenali. Buka ulang menu Laporan, ya.",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🔙 Kembali", callback_data="menu_laporan")]]
+                ),
+            )
+            return
+    elif context.args:
         try:
             target_month = int(context.args[0])
             if len(context.args) > 1:
@@ -166,7 +228,12 @@ async def ringkasan_bulan(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if target_month < 1 or target_month > 12:
                 raise ValueError()
         except ValueError:
-            await update.message.reply_text("⚠️ Format bulan/tahun salah!\nContoh: `/bulan 11 2024`", parse_mode="Markdown")
+            await update.message.reply_text(
+                "⚠️ Bulan atau tahun belum tepat.\n"
+                "Contoh: `/bulan 11 2026`",
+                parse_mode="Markdown",
+                reply_markup=_error_keyboard(),
+            )
             return
 
     if update.callback_query:
@@ -184,6 +251,7 @@ async def ringkasan_bulan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         logger.info(f"User {update.effective_user.id} meminta ringkasan bulan {target_month}/{target_year}")
         transactions, inc, exp, expense_by_category = await get_monthly_summary(update.effective_user.id, target_year, target_month)
+        total_balance = await get_total_balance(update.effective_user.id)
         msg = _format_transactions(
             transactions,
             inc,
@@ -193,11 +261,43 @@ async def ringkasan_bulan(update: Update, context: ContextTypes.DEFAULT_TYPE):
             include_balance=True,
             expense_by_category=expense_by_category,
             group_by_date=True,
+            total_balance=total_balance,
         )
         await _send_report(reply_func, msg, reply_markup, overflow_func)
     except Exception as e:
-        logger.error(f"Error ringkasan_bulan: {str(e)}", exc_info=True)
-        await reply_func(f"⚠️ Terjadi error: {str(e)}")
+        logger.error(f"Error ringkasan_bulan: {e}", exc_info=True)
+        await reply_func(GENERIC_ERROR, reply_markup=_error_keyboard())
+
+
+async def pilih_bulan_laporan(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Tampilkan tombol pilihan bulan laporan (UX-047)."""
+    query = update.callback_query
+    await query.answer()
+    today = await get_user_local_date(update.effective_user.id)
+
+    rows = []
+    row = []
+    for year, month, label in month_options(today):
+        row.append(
+            InlineKeyboardButton(
+                label, callback_data=f"laporan_bulan_{year}_{month}"
+            )
+        )
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    rows.append(
+        [InlineKeyboardButton("🔙 Kembali", callback_data="menu_laporan")]
+    )
+
+    await query.edit_message_text(
+        "📅 *Pilih Bulan Laporan*\n\n"
+        "Pilih bulan yang ingin kamu lihat. 👇",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(rows),
+    )
 
 
 def _parse_month_year_args(args, today):
@@ -216,51 +316,72 @@ def _parse_month_year_args(args, today):
 
 
 async def unduh_bulan(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Kirim laporan keuangan bulan tertentu sebagai file JSON.
+    """Kirim laporan keuangan bulan tertentu sebagai file JSON atau CSV.
 
     Cara pakai:
-    - /unduh → bulan berjalan
-    - /unduh 10 → Oktober tahun berjalan
-    - /unduh 10 2026 → Oktober 2026
-    - Tombol "⬇️ Unduh Bulan Ini (JSON)" di menu laporan
+    - /unduh → JSON bulan berjalan
+    - /unduh csv → CSV bulan berjalan
+    - /unduh 10 → JSON Oktober tahun berjalan
+    - /unduh 10 2026 csv → CSV Oktober 2026
+    - Tombol unduh JSON/CSV di menu laporan
     """
     from_callback = bool(update.callback_query)
+    export_format = "json"
+
     if from_callback:
         await update.callback_query.answer()
+        if update.callback_query.data == "laporan_unduh_csv":
+            export_format = "csv"
         today = await get_user_local_date(update.effective_user.id)
         target_month, target_year = today.month, today.year
         status_msg = await update.callback_query.message.reply_text(
-            "⏳ Menyiapkan file JSON..."
+            "⏳ Menyiapkan file laporan..."
         )
     else:
+        args = list(context.args or [])
+        if args and args[-1].lower() in ("csv", "json"):
+            export_format = args.pop().lower()
         today = await get_user_local_date(update.effective_user.id)
-        target_month, target_year = _parse_month_year_args(context.args or [], today)
+        target_month, target_year = _parse_month_year_args(args, today)
         if target_month is None:
             await update.message.reply_text(
-                "⚠️ Format bulan/tahun salah!\nContoh: `/unduh 10 2026`",
+                "⚠️ Bulan atau tahun belum tepat.\n"
+                "Contoh: `/unduh 10 2026` atau `/unduh 10 2026 csv`",
                 parse_mode="Markdown",
+                reply_markup=_error_keyboard(),
             )
             return
-        status_msg = await update.message.reply_text("⏳ Menyiapkan file JSON...")
+        status_msg = await update.message.reply_text("⏳ Menyiapkan file laporan...")
 
     try:
         logger.info(
-            f"User {update.effective_user.id} mengunduh laporan {target_month}/{target_year}"
+            f"User {update.effective_user.id} mengunduh laporan "
+            f"{target_month}/{target_year} ({export_format})"
         )
         data = await get_monthly_export(
             update.effective_user.id, target_year, target_month
         )
         if data is None:
-            await status_msg.edit_text("Anda belum memiliki transaksi.")
+            await status_msg.edit_text(
+                f"Belum ada transaksi untuk {target_month}/{target_year}.",
+                reply_markup=_error_keyboard(),
+            )
             return
 
-        payload = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
-        filename = f"laporan-{target_year}-{target_month:02d}.json"
+        if export_format == "csv":
+            payload = build_csv_report(data)
+            filename = f"laporan-{target_year}-{target_month:02d}.csv"
+            format_label = "tabel"
+        else:
+            payload = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+            filename = f"laporan-{target_year}-{target_month:02d}.json"
+            format_label = "data lengkap"
+
         caption = (
-            f"📥 *Laporan {target_month}/{target_year}*\n"
+            f"📥 *Laporan {target_month}/{target_year}* — {format_label}\n"
             f"{data['meta']['transaction_count']} transaksi | "
-            f"masuk Rp{data['summary']['total_income']:,.0f} | "
-            f"keluar Rp{data['summary']['total_expense']:,.0f}"
+            f"masuk {rupiah(data['summary']['total_income'])} | "
+            f"keluar {rupiah(data['summary']['total_expense'])}"
         )
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
@@ -271,8 +392,8 @@ async def unduh_bulan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await status_msg.delete()
     except Exception as e:
-        logger.error(f"Error unduh_bulan: {str(e)}", exc_info=True)
-        await status_msg.edit_text(f"⚠️ Terjadi error: {str(e)}")
+        logger.error(f"Error unduh_bulan: {e}", exc_info=True)
+        await status_msg.edit_text(GENERIC_ERROR, reply_markup=_error_keyboard())
 
 
 def _report_date_for(now_local) -> date:
@@ -332,6 +453,7 @@ async def kirim_laporan_harian_otomatis(bot) -> dict:
                         include_balance=True,
                         expense_by_category=expense_by_category,
                         group_by_date=True,
+                        total_balance=await sum_wallet_balance(session, user.id),
                     )
                 )
                 await _send_report(partial(bot.send_message, user.telegram_id), msg)
@@ -376,7 +498,8 @@ async def atur_laporan_harian(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text(
                 "🌙 *Laporan Harian Otomatis*\n\n"
                 f"Status: {status}\n"
-                f"Dikirim setiap jam 12 malam (00:00) waktu lokal ({user.timezone}).\n"
+                f"Dikirim setiap jam 12 malam (00:00) waktu lokal "
+                f"({zona_waktu(user.timezone)}).\n"
                 "Isinya ringkasan transaksi hari yang baru selesai.\n\n"
                 "Ketik `/laporan_harian on` untuk mengaktifkan atau "
                 "`/laporan_harian off` untuk mematikan.",
