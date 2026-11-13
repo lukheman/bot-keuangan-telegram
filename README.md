@@ -16,6 +16,17 @@ uv run main.py
 Tanpa `WEBHOOK_URL`, bot berjalan dengan long polling. Untuk produksi, isi
 `WEBHOOK_URL` dan gunakan endpoint `/api/webhook`.
 
+## Deploy VPS aaPanel
+
+Deploy produksi memakai FastAPI + `uvicorn` melalui Nginx reverse proxy. File
+service systemd, konfigurasi Nginx, script deploy, dan health-check tersedia di
+[`deploy/README.md`](deploy/README.md).
+
+```bash
+uv sync --frozen
+uv run uvicorn app.api.index:app --host 127.0.0.1 --port 8000 --workers 1
+```
+
 Variabel penting:
 
 | Variabel | Fungsi |

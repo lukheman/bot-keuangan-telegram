@@ -58,7 +58,7 @@ from fastapi.responses import HTMLResponse
 async def bot_info():
     return {
         "status": "success",
-        "message": "Bot Keuangan berjalan normal di Vercel Serverless.",
+        "message": "Bot Keuangan berjalan normal.",
         "telegram_webhook_ready": True
     }
 
