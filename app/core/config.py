@@ -6,6 +6,8 @@ import os
 class Settings(BaseSettings):
     TELEGRAM_TOKEN: str
     GROQ_API_KEY: str | None = None
+    GROQ_TEXT_MODEL: str = "qwen/qwen3.8-27b"
+    GROQ_VISION_MODEL: str = "qwen/qwen3.8-27b"
     GOOGLE_SHEET_ID: str | None = None
     WEBHOOK_URL: str | None = None
     WEBAPP_BASE_URL: str | None = None

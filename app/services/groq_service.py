@@ -45,7 +45,7 @@ async def analyze_transaction(image_path: str, caption: str = None) -> Transacti
             prompt_text += f"\n\nINSTRUKSI SANGAT PENTING \nPengguna memberikan caption/teks berikut bersamaan dengan gambar: \"{caption}\"\nKamu WAJIB menjadikan teks ini sebagai prioritas UTAMA penentu jenis transaksi (INCOME atau EXPENSE). Jika pengguna bilang ini pemasukan/pendapatan, paksa 'type' menjadi 'INCOME' walaupun gambarnya terlihat seperti struk belanja biasa!"
 
         response = await client.chat.completions.create(
-            model="qwen/qwen3.8-27b",
+            model=settings.GROQ_VISION_MODEL,
             messages=[
                 {
                     "role": "user",
@@ -110,7 +110,7 @@ async def analyze_text_transaction(text: str) -> TransactionResult:
 
     try:
         response = await client.chat.completions.create(
-            model="qwen/qwen3.8-27b",
+            model=settings.GROQ_TEXT_MODEL,
             messages=[
                 {"role": "system", "content": TEXT_EXTRACTION_PROMPT},
                 {"role": "user", "content": text}
